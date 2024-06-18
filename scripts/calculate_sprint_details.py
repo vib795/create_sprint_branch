@@ -10,8 +10,7 @@ day = today.day
 # Function to get the last Wednesday
 def get_last_wednesday(date):
     days_behind = (date.weekday() + 4) % 7
-    last_wednesday = date - datetime.timedelta(days=days_behind)
-    return last_wednesday
+    return date - datetime.timedelta(days=days_behind)
 
 # Get the last Wednesday
 last_wednesday = get_last_wednesday(today)
@@ -28,8 +27,13 @@ if is_sprint_start:
     # Calculate sprint number within the quarter
     first_day_of_quarter = datetime.datetime(year, 3 * (quarter - 1) + 1, 1)
     days_since_quarter_start = (last_wednesday - first_day_of_quarter).days
-    sprint_number = days_since_quarter_start // 15 + 1
-
+    
+    # Adjust sprint number calculation to ensure it's always positive
+    if days_since_quarter_start >= 0:
+        sprint_number = days_since_quarter_start // 15 + 1
+    else:
+        sprint_number = 1
+    
     # Calculate end date of the sprint
     end_date = last_wednesday + datetime.timedelta(days=14)
 
