@@ -14,6 +14,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
       with:
+        ref: master
         fetch-depth: 0 # Fetch all history for all branches and tags
 
     - name: Set up Python
@@ -30,6 +31,11 @@ jobs:
       run: |
         BRANCH_NAME=${{ steps.calc_sprint.outputs.branch_name }}
         git fetch origin
-        git checkout origin/master
+        git checkout master
         git checkout -b $BRANCH_NAME
         git push origin $BRANCH_NAME
+
+    - name: Test if branch is created
+      run: |
+        BRANCH_NAME=${{ steps.calc_sprint.outputs.branch_name }}
+        git branch -r | grep "origin/$BRANCH_NAME"
