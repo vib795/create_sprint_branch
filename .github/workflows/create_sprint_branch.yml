@@ -25,11 +25,11 @@ jobs:
       id: calc_sprint
       run: python scripts/calculate_sprint_details.py
 
-    - name: Checkout develop branch and create sprint branch
+    - name: Checkout master branch and create sprint branch
       if: steps.calc_sprint.outputs.branch_name != 'skip'
       run: |
         BRANCH_NAME=${{ steps.calc_sprint.outputs.branch_name }}
         git fetch origin
-        git checkout origin/develop
+        git checkout origin/master
         git checkout -b $BRANCH_NAME
         git push origin $BRANCH_NAME
