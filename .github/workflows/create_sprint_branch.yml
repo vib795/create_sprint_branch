@@ -33,10 +33,10 @@ jobs:
       if: ${{ env.BRANCH_NAME }} != 'skip'
       env:
         GH_PAT: ${{ secrets.GH_PAT }}
+        BRANCH_NAME: ${{ steps.calc_sprint.outputs.BRANCH_NAME }}
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
-        BRANCH_NAME=${{ env.BRANCH_NAME }}
         git fetch origin
         git checkout master
         git checkout -b $BRANCH_NAME
@@ -44,6 +44,7 @@ jobs:
 
     - name: Test if branch is created
       if: ${{ env.BRANCH_NAME }} != 'skip'
+      env:
+        BRANCH_NAME: ${{ steps.calc_sprint.outputs.BRANCH_NAME }}
       run: |
-        BRANCH_NAME=${{ env.BRANCH_NAME }}
-        git branch -r | grep "origin/$BRANCH_NAME"
+        git ls-remote --heads origin $BRANCH_NAME
