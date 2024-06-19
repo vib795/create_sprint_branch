@@ -1,6 +1,7 @@
 import datetime
 import sys
 import logging
+import os
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -27,7 +28,7 @@ reference_date = datetime.datetime(2024, 6, 5, tzinfo=datetime.timezone.utc)  # 
 logger.info(f"REFERENCE DATE: {reference_date}")
 delta_days = (today - reference_date).days
 logger.info(f"DELTA DAYS: {delta_days}")
-is_sprint_start = delta_days % 14 == 0
+is_sprint_start = delta_days % 15 == 0
 
 if is_sprint_start:
     # Calculate the quarter
@@ -54,9 +55,11 @@ if is_sprint_start:
     branch_name = f"Sprint_Q{quarter}_S{sprint_number}_{start_date_str}_{end_date_str}"
     logger.info(f"Branch name: {branch_name}")
 
-    print(f"::set-output name=branch_name::{branch_name}")
+    with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+        env_file.write(f"BRANCH_NAME={branch_name}\n")
 else:
     logger.info("Today is not a sprint start date.")
-    print("::set-output name=branch_name::skip")
+    with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+        env_file.write("BRANCH_NAME=skip\n")
 
 sys.exit(0)
