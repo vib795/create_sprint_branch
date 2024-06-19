@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Get the current date and time in UTC
 today = datetime.datetime.now(datetime.timezone.utc)
+logger.info(f"TODAY: {today}")
 year = today.year
 month = today.month
 day = today.day
@@ -19,11 +20,14 @@ def get_last_wednesday(date):
 
 # Get the last Wednesday
 last_wednesday = get_last_wednesday(today)
+logger.info(f"LAST WEDNESDAY: {last_wednesday}")
 
 # Check if today is a sprint start date (every 15 days starting from a reference date)
 reference_date = datetime.datetime(2024, 6, 5, tzinfo=datetime.timezone.utc)  # Example start date
+logger.info(f"REFERENCE DATE: {reference_date}")
 delta_days = (today - reference_date).days
-is_sprint_start = delta_days % 15 == 0
+logger.info(f"DELTA DAYS: {delta_days}")
+is_sprint_start = delta_days % 14 == 0
 
 if is_sprint_start:
     # Calculate the quarter
