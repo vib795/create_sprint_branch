@@ -23,7 +23,7 @@ def get_last_wednesday(date):
 last_wednesday = get_last_wednesday(today)
 logger.info(f"LAST WEDNESDAY: {last_wednesday}")
 
-# Check if today is a sprint start date (every 15 days starting from a reference date)
+# Check if today is a sprint start date (every 14 days starting from a reference date)
 reference_date = datetime.datetime(2024, 6, 5, tzinfo=datetime.timezone.utc)  # Example start date
 logger.info(f"REFERENCE DATE: {reference_date}")
 delta_days = (today - reference_date).days
@@ -40,12 +40,12 @@ if is_sprint_start:
 
     # Adjust sprint number calculation to ensure it's always positive
     if days_since_quarter_start >= 0:
-        sprint_number = days_since_quarter_start // 15 + 1
+        sprint_number = days_since_quarter_start // 14 + 1
     else:
         sprint_number = 1
 
     # Calculate end date of the sprint
-    end_date = last_wednesday + datetime.timedelta(days=14)
+    end_date = last_wednesday + datetime.timedelta(days=13)
 
     # Format the dates
     start_date_str = last_wednesday.strftime('%m%d%y')
@@ -55,10 +55,12 @@ if is_sprint_start:
     branch_name = f"Sprint_Q{quarter}_S{sprint_number}_{start_date_str}_{end_date_str}"
     logger.info(f"Branch name: {branch_name}")
 
+    # Set the environment variable for GitHub Actions
     with open(os.environ['GITHUB_ENV'], 'a') as env_file:
         env_file.write(f"BRANCH_NAME={branch_name}\n")
 else:
     logger.info("Today is not a sprint start date.")
+    # Set the environment variable for GitHub Actions
     with open(os.environ['GITHUB_ENV'], 'a') as env_file:
         env_file.write("BRANCH_NAME=skip\n")
 

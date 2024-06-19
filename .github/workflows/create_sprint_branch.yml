@@ -30,7 +30,7 @@ jobs:
       run: python scripts/calculate_sprint_details.py
 
     - name: Checkout master branch and create sprint branch
-      if: env.BRANCH_NAME != 'skip'
+      if: ${{ env.BRANCH_NAME }} != 'skip'
       env:
         GH_PAT: ${{ secrets.GH_PAT }}
       run: |
@@ -43,7 +43,7 @@ jobs:
         git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }} $BRANCH_NAME
 
     - name: Test if branch is created
-      if: env.BRANCH_NAME != 'skip'
+      if: ${{ env.BRANCH_NAME }} != 'skip'
       run: |
         BRANCH_NAME=${{ env.BRANCH_NAME }}
         git branch -r | grep "origin/$BRANCH_NAME"
