@@ -28,23 +28,26 @@ jobs:
     - name: Run sprint calculation script
       id: calc_sprint
       run: python scripts/calculate_sprint_details.py
+      env:
+        GITHUB_ENV: $GITHUB_ENV
 
     - name: Set branch name
-      run: echo "BRANCH_NAME=${{ steps.calc_sprint.outputs.BRANCH_NAME }}" >> $GITHUB_ENV
+      run: echo "BRANCH_NAME=$(cat $GITHUB_ENV | grep 'BRANCH_NAME' | cut -d '=' -f2)" >> $GITHUB_ENV
 
     - name: Checkout master branch and create sprint branch
-      if: env.BRANCH_NAME != 'skip'
+      if: ${{ env.BRANCH_NAME }} != 'skip'
       env:
         GH_PAT: ${{ secrets.GH_PAT }}
+        BRANCH_NAME: ${{ env.BRANCH_NAME }}
       run: |
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
         git fetch origin
         git checkout master
-        git checkout -b ${{ env.BRANCH_NAME }}
-        git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }} ${{ env.BRANCH_NAME }}
+        git checkout -b $BRANCH_NAME
+        git push https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }} $BRANCH_NAME
 
     - name: Test if branch is created
-      if: env.BRANCH_NAME != 'skip'
+      if: ${{ env.BRANCH_NAME }} != 'skip'
       run: |
-        git ls-remote --heads origin ${{ env.BRANCH_NAME }}
+        git ls-remote --heads origin $BRANCH_NAME
