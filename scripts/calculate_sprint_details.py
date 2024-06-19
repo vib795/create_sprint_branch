@@ -28,7 +28,7 @@ reference_date = datetime.datetime(2024, 6, 5, tzinfo=datetime.timezone.utc)  # 
 logger.info(f"REFERENCE DATE: {reference_date}")
 delta_days = (today - reference_date).days
 logger.info(f"DELTA DAYS: {delta_days}")
-is_sprint_start = delta_days % 15 == 0
+is_sprint_start = delta_days % 14 == 0
 
 if is_sprint_start:
     # Calculate the quarter
