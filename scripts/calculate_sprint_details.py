@@ -16,7 +16,7 @@ day = today.day
 
 # Function to get the last Thursday
 def get_last_thursday(date):
-    days_behind = (date.weekday() + 5) % 7
+    days_behind = (date.weekday() - 3) % 7
     return date - datetime.timedelta(days=days_behind)
 
 # Get the last Thursday
@@ -40,7 +40,7 @@ if is_sprint_start:
 
     # Adjust sprint number calculation to ensure it's always positive
     if days_since_quarter_start >= 0:
-        sprint_number = days_since_quarter_start // 14 + 1
+        sprint_number = (days_since_quarter_start // 14) + 1
     else:
         sprint_number = 1
 
@@ -55,13 +55,21 @@ if is_sprint_start:
     branch_name = f"Sprint_Q{quarter}_S{sprint_number}_{start_date_str}_{end_date_str}"
     logger.info(f"Branch name: {branch_name}")
 
-    # Set the environment variable for GitHub Actions
-    with open(os.environ['GITHUB_ENV'], 'a') as env_file:
-        env_file.write(f"BRANCH_NAME={branch_name}\n")
+    # Set the environment variable for GitHub Actions or local testing
+    if 'GITHUB_ENV' in os.environ:
+        with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+            env_file.write(f"BRANCH_NAME={branch_name}\n")
+    else:
+        with open('./test.env', 'w') as env_file:
+            env_file.write(f"BRANCH_NAME={branch_name}\n")
 else:
     logger.info("Today is not a sprint start date.")
-    # Set the environment variable for GitHub Actions
-    with open(os.environ['GITHUB_ENV'], 'a') as env_file:
-        env_file.write("BRANCH_NAME=skip\n")
+    # Set the environment variable for GitHub Actions or local testing
+    if 'GITHUB_ENV' in os.environ:
+        with open(os.environ['GITHUB_ENV'], 'a') as env_file:
+            env_file.write("BRANCH_NAME=skip\n")
+    else:
+        with open('./test.env', 'w') as env_file:
+            env_file.write("BRANCH_NAME=skip\n")
 
 sys.exit(0)
