@@ -14,17 +14,17 @@ year = today.year
 month = today.month
 day = today.day
 
-# Function to get the last Wednesday
-def get_last_wednesday(date):
-    days_behind = (date.weekday() + 4) % 7
+# Function to get the last Thursday
+def get_last_thursday(date):
+    days_behind = (date.weekday() + 5) % 7
     return date - datetime.timedelta(days=days_behind)
 
-# Get the last Wednesday
-last_wednesday = get_last_wednesday(today)
-logger.info(f"LAST WEDNESDAY: {last_wednesday}")
+# Get the last Thursday
+last_thursday = get_last_thursday(today)
+logger.info(f"LAST THURSDAY: {last_thursday}")
 
 # Check if today is a sprint start date (every 14 days starting from a reference date)
-reference_date = datetime.datetime(2024, 6, 5, tzinfo=datetime.timezone.utc)  # Example start date
+reference_date = datetime.datetime(2024, 6, 6, tzinfo=datetime.timezone.utc)  # Example start date
 logger.info(f"REFERENCE DATE: {reference_date}")
 delta_days = (today - reference_date).days
 logger.info(f"DELTA DAYS: {delta_days}")
@@ -36,7 +36,7 @@ if is_sprint_start:
 
     # Calculate sprint number within the quarter
     first_day_of_quarter = datetime.datetime(year, 3 * (quarter - 1) + 1, 1, tzinfo=datetime.timezone.utc)
-    days_since_quarter_start = (last_wednesday - first_day_of_quarter).days
+    days_since_quarter_start = (last_thursday - first_day_of_quarter).days
 
     # Adjust sprint number calculation to ensure it's always positive
     if days_since_quarter_start >= 0:
@@ -45,10 +45,10 @@ if is_sprint_start:
         sprint_number = 1
 
     # Calculate end date of the sprint
-    end_date = last_wednesday + datetime.timedelta(days=13)
+    end_date = last_thursday + datetime.timedelta(days=13)
 
     # Format the dates
-    start_date_str = last_wednesday.strftime('%m%d%y')
+    start_date_str = last_thursday.strftime('%m%d%y')
     end_date_str = end_date.strftime('%m%d%y')
 
     # Form the branch name
