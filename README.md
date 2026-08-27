@@ -13,6 +13,7 @@ sprint branch is ever cut on this repo.
 
 ```
 template/sprint.yml         -> installed as .github/sprint.yml
+template/sprint.ps1         -> installed as sprint.ps1, the Windows CLI wrapper
 template/workflows/*.yml    -> installed into .github/workflows/
 scripts/sprint/             -> copied as-is
 tests/                      -> copied as-is
@@ -75,11 +76,25 @@ Then in that repo:
 
 1. Edit `.github/sprint.yml` — set the cadence anchor and your branch names.
 2. Confirm it reads the way you expect:
-   ```bash
-   PYTHONPATH=scripts python -m sprint validate     # bash
-   ```
    ```powershell
-   $env:PYTHONPATH = "scripts"; python -m sprint validate    # PowerShell
+   .\sprint.ps1 validate                            # Windows
+   ```
+   ```bash
+   PYTHONPATH=scripts python -m sprint validate     # macOS / Linux
+   ```
+
+   On Windows use the installed `sprint.ps1` wrapper rather than translating the
+   bash line. `PYTHONPATH=scripts python …` is bash-only syntax — PowerShell
+   reads `PYTHONPATH=scripts` as a command name and fails with *"is not
+   recognized as a name of a cmdlet"*. `python -m .\scripts\sprint\` fails too:
+   `-m` takes a module name, not a path. The wrapper sets `PYTHONPATH` itself,
+   runs from the repo root so `.github/sprint.yml` resolves, prefers your
+   activated venv, and forwards every argument through:
+
+   ```powershell
+   .\sprint.ps1 status
+   .\sprint.ps1 status --date 2026-09-10
+   .\sprint.ps1 promotion --hop dit
    ```
 3. Add a `SPRINT_TOKEN` repository secret (see [Tokens](#tokens)).
 4. Commit, then run **Sprint - cut branch** manually with *force* to check it end to end.

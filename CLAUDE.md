@@ -29,10 +29,18 @@ never reaches any repo. CI fails if a file under `scripts/sprint/`,
 | Path here | Installed as |
 |---|---|
 | `template/sprint.yml` | `.github/sprint.yml` |
+| `template/sprint.ps1` | `sprint.ps1` (repo root) |
 | `template/workflows/*.yml` | `.github/workflows/*.yml` |
 | `scripts/sprint/`, `tests/` | same paths |
 | `.github/workflows/ci.yml` | never copied |
 | `tools/`, `VERSION` | never copied |
+
+`template/sprint.ps1` is a CLI wrapper, not config, so unlike `sprint.yml` it is
+overwritten on every reinstall. It exists because
+`PYTHONPATH=scripts python -m sprint` is bash-only syntax that PowerShell parses
+as a command name; any Windows instruction must point at
+`.\sprint.ps1 <subcommand>` rather than translate the bash line. Adding a CLI
+subcommand needs no change there — the wrapper forwards its arguments verbatim.
 
 ### Two installers, one manifest
 

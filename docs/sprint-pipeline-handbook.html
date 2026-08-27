@@ -663,16 +663,30 @@ cd create_sprint_branch
         <li>
           <h3>Check it reads the way you expect</h3>
           <div class="snippet">
-            <div class="snippet-label">terminal</div>
-            <pre>PYTHONPATH=scripts python -m sprint validate
-
-<i>{</i>
+            <div class="snippet-label">Windows &mdash; PowerShell</div>
+            <pre>.\sprint.ps1 validate</pre>
+          </div>
+          <div class="snippet">
+            <div class="snippet-label">macOS / Linux</div>
+            <pre>PYTHONPATH=scripts python -m sprint validate</pre>
+          </div>
+          <div class="snippet">
+            <div class="snippet-label">either &mdash; same output</div>
+            <pre><i>{</i>
 <i>  "start_weekday": </i><b>"thursday"</b><i>,</i>
 <i>  "length_days": </i><b>14</b><i>,</i>
-<i>  "current_sprint": </i><b>"Sprint_Q3_S5_082726_090926"</b><i>,</i>
+<i>  "current_sprint": </i><b>"Q3_S5_2026_PROTS_0827-0910"</b><i>,</i>
 <i>  "sprint_start": "2026-08-27", "sprint_end": "2026-09-09"</i>
 <i>}</i></pre>
           </div>
+          <p>
+            <code>sprint.ps1</code> sits in the repo root and is installed along
+            with everything else. It exists because the bash idiom
+            <code>PYTHONPATH=scripts python -m sprint</code> is <em>not</em> valid
+            PowerShell &mdash; PowerShell reads <code>PYTHONPATH=scripts</code> as
+            a command name and fails. The wrapper sets the path itself, so on
+            Windows you never type it.
+          </p>
           <p>If that isn&rsquo;t the sprint you&rsquo;re in, fix the anchor before going further.</p>
         </li>
 
@@ -1162,7 +1176,13 @@ want sprints to start on.</pre>
 
       <h3>Inspecting without touching anything</h3>
       <div class="snippet">
-        <div class="snippet-label">terminal</div>
+        <div class="snippet-label">Windows &mdash; PowerShell</div>
+        <pre>.\sprint.ps1 status                    <i># where today falls</i>
+.\sprint.ps1 status --date 2026-09-10  <i># any date, past or future</i>
+.\sprint.ps1 promotion --hop dit       <i># what the next PR would say</i></pre>
+      </div>
+      <div class="snippet">
+        <div class="snippet-label">macOS / Linux</div>
         <pre>export PYTHONPATH=scripts
 
 python -m sprint status                    <i># where today falls</i>
@@ -1180,7 +1200,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.3.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.4.0. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

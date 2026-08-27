@@ -20,3 +20,4 @@ scripts/sprint/config.py:scripts/sprint/config.py
 scripts/sprint/naming.py:scripts/sprint/naming.py
 tests/conftest.py:tests/conftest.py
 tests/test_cadence.py:tests/test_cadence.py
+template/sprint.ps1:sprint.ps1
