@@ -1,0 +1,198 @@
+# Walks a sprint through the environment chain:
+#
+#   sprint branch -> DIT -> SIT -> UAT -> release/<sprint>
+#
+# The sprint -> DIT pull request opens automatically on the last day of a
+# sprint. Every hop after that is triggered by hand, once the environment has
+# actually been verified -- that human step is the gate, so it is deliberate.
+name: Sprint - promote
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      hop:
+        description: 'Which promotion to run'
+        required: true
+        type: choice
+        options: [dit, sit, uat, release]
+      sprint_date:
+        description: 'A date inside the sprint being promoted (default: today)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sprint-promote-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: scripts
+      # A PAT lets the resulting pull request run its required status checks;
+      # pull requests opened with GITHUB_TOKEN do not trigger other workflows,
+      # which would leave promotion PRs sitting with no checks to gate on.
+      GH_TOKEN: ${{ secrets.SPRINT_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install --quiet -r requirements.txt
+
+      - name: Resolve sprint
+        id: sprint
+        env:
+          DATE_OVERRIDE: ${{ inputs.sprint_date }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DATE_OVERRIDE:-}" ]; then
+            python -m sprint status --date "$DATE_OVERRIDE"
+          else
+            python -m sprint status
+          fi
+
+      - name: Decide which hop to run
+        id: decide
+        env:
+          REQUESTED: ${{ inputs.hop }}
+          IS_SPRINT_END: ${{ steps.sprint.outputs.is_sprint_end }}
+          AUTO_DIT: ${{ steps.sprint.outputs.auto_open_dit_pr }}
+        run: |
+          set -euo pipefail
+          if [ -n "${REQUESTED:-}" ]; then
+            echo "hop=$REQUESTED" >> "$GITHUB_OUTPUT"
+          elif [ "$IS_SPRINT_END" = "true" ] && [ "$AUTO_DIT" = "true" ]; then
+            echo "hop=dit" >> "$GITHUB_OUTPUT"
+          else
+            echo "hop=" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nothing to promote today."
+          fi
+
+      - name: Plan the promotion
+        id: plan
+        if: steps.decide.outputs.hop != ''
+        env:
+          HOP: ${{ steps.decide.outputs.hop }}
+          DATE_OVERRIDE: ${{ inputs.sprint_date }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DATE_OVERRIDE:-}" ]; then
+            python -m sprint promotion --hop "$HOP" --sprint-date "$DATE_OVERRIDE"
+          else
+            python -m sprint promotion --hop "$HOP"
+          fi
+
+      - name: Open promotion pull request
+        if: steps.decide.outputs.hop != '' && steps.plan.outputs.is_cut != 'true'
+        env:
+          HOP: ${{ steps.decide.outputs.hop }}
+          HEAD: ${{ steps.plan.outputs.head }}
+          BASE: ${{ steps.plan.outputs.base }}
+          TITLE: ${{ steps.plan.outputs.title }}
+          BODY: ${{ steps.plan.outputs.body }}
+          LABELS: ${{ steps.plan.outputs.labels }}
+          REVIEWERS: ${{ steps.plan.outputs.reviewers }}
+          DRAFT: ${{ steps.plan.outputs.draft }}
+          BASE_BRANCH: ${{ steps.sprint.outputs.base_branch }}
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --heads origin "$HEAD" >/dev/null 2>&1; then
+            echo "::error::head branch '$HEAD' does not exist. Has the sprint branch been cut?"
+            exit 1
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # First run in a repo: seed the environment branch from the base branch
+          # so the promotion has somewhere to land.
+          if ! git ls-remote --exit-code --heads origin "$BASE" >/dev/null 2>&1; then
+            echo "::notice::Environment branch '$BASE' does not exist yet - seeding it from '$BASE_BRANCH'"
+            git fetch origin "$BASE_BRANCH"
+            git branch "$BASE" "origin/$BASE_BRANCH"
+            git push origin "$BASE"
+          fi
+
+          git fetch origin "$HEAD" "$BASE"
+
+          if [ "$(git rev-list --count "origin/$BASE..origin/$HEAD")" -eq 0 ]; then
+            echo "::notice::$HEAD has no commits that $BASE is missing - nothing to promote"
+            exit 0
+          fi
+
+          existing=$(gh pr list --head "$HEAD" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "::notice::Pull request #$existing already open for $HEAD -> $BASE"
+            exit 0
+          fi
+
+          args=(--head "$HEAD" --base "$BASE" --title "$TITLE" --body "$BODY")
+          [ "$DRAFT" = "true" ] && args+=(--draft)
+
+          IFS=',' read -ra labels <<< "$LABELS"
+          for label in "${labels[@]}"; do
+            [ -z "$label" ] && continue
+            # Creating a pull request with an unknown label fails the whole call.
+            gh label create "$label" --color ededed --description 'Opened by sprint automation' >/dev/null 2>&1 || true
+            args+=(--label "$label")
+          done
+
+          IFS=',' read -ra reviewers <<< "$REVIEWERS"
+          for reviewer in "${reviewers[@]}"; do
+            [ -z "$reviewer" ] && continue
+            args+=(--reviewer "$reviewer")
+          done
+
+          url=$(gh pr create "${args[@]}")
+          echo "::notice::Opened $url"
+          {
+            echo "### ${HOP:-Promotion} pull request opened"
+            echo ""
+            echo "\`$HEAD\` -> \`$BASE\`"
+            echo ""
+            echo "$url"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Cut release branch from UAT
+        if: steps.plan.outputs.is_cut == 'true'
+        env:
+          FROM: ${{ steps.plan.outputs.head }}
+          RELEASE: ${{ steps.plan.outputs.release_branch }}
+        run: |
+          set -euo pipefail
+
+          if ! git ls-remote --exit-code --heads origin "$FROM" >/dev/null 2>&1; then
+            echo "::error::'$FROM' does not exist - promote through UAT before cutting a release"
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "$RELEASE" >/dev/null 2>&1; then
+            echo "::notice::$RELEASE already exists - nothing to do"
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FROM"
+          git branch "$RELEASE" "origin/$FROM"
+          git push origin "$RELEASE"
+
+          echo "::notice::Cut $RELEASE from $FROM"
+          {
+            echo "### Release branch cut"
+            echo ""
+            echo "\`$RELEASE\` created from \`$FROM\`."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,54 @@
+# Sprint automation configuration.
+#
+# This is the only file a team needs to edit. Copy it into your repo alongside
+# the sprint-*.yml workflows and set the cadence to match how your team works.
+version: 1
+
+cadence:
+  # Any date on which one of your sprints started. This single value fixes the
+  # day sprints start on (its weekday) and, with length_days, every future
+  # sprint boundary. Want Monday sprints? Move the anchor to a Monday.
+  anchor: 2024-06-06
+
+  # Sprint length in days. The sprint ends on anchor + length_days - 1, so 14
+  # gives a Thursday-to-Wednesday fortnight when the anchor is a Thursday.
+  length_days: 14
+
+  # Optional cross-check: if set, it must agree with the anchor's weekday.
+  # Catches an anchor edit that forgot to move to the intended day.
+  start_weekday: thursday
+
+  # Sprint boundaries are evaluated in this timezone, not the runner's UTC.
+  timezone: UTC
+
+  # quarter    -> Sprint_Q3_S5_082726_090926  (numbering resets each quarter)
+  # continuous -> Sprint_S58_082726_090926    (numbering runs from the anchor)
+  numbering: quarter
+
+branches:
+  # Sprint branches are cut from here, and back-merge PRs target it.
+  base: develop
+
+  # Long-lived environment branches. Each promotion merges into the next.
+  dit: env/dit
+  sit: env/sit
+  uat: env/uat
+
+  sprint_prefix: Sprint
+  release_prefix: release/
+
+promotion:
+  # Open the sprint -> DIT pull request automatically on the last day of a sprint.
+  auto_open_dit_pr: true
+
+  # Keep `base` current by opening a PR whenever UAT drifts ahead of it.
+  # Without this, hotfixes applied downstream are silently lost at the next cut.
+  backmerge_to_base: true
+
+  # Requested on every promotion PR. Team or user handles, no @ prefix.
+  reviewers: []
+
+  labels:
+    - sprint-automation
+
+  draft: false

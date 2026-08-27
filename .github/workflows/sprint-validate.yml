@@ -1,0 +1,37 @@
+# Guards the cadence config. A malformed or contradictory sprint.yml would
+# otherwise only surface when a branch is cut on the wrong day.
+name: Sprint - validate config
+
+on:
+  pull_request:
+    paths:
+      - '.github/sprint.yml'
+      - '.github/workflows/sprint-*.yml'
+      - 'scripts/sprint/**'
+      - 'tests/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install --quiet -r requirements-dev.txt
+
+      - name: Validate sprint.yml
+        run: python -m sprint validate | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run cadence tests
+        run: pytest tests -q

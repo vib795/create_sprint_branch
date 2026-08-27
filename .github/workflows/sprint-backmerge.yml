@@ -1,0 +1,103 @@
+# Keeps the base branch current with what shipped.
+#
+# In a branch-per-environment model, anything applied downstream -- a hotfix on
+# UAT, a fix made during release hardening -- exists only on that branch. Unless
+# it flows back, the next sprint is cut from a base branch that silently lacks
+# it, and the fix is reverted in production. This workflow is the mitigation:
+# it opens a pull request whenever UAT or a release branch is ahead of base.
+name: Sprint - back-merge to base
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: sprint-backmerge-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  backmerge:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: scripts
+      GH_TOKEN: ${{ secrets.SPRINT_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install --quiet -r requirements.txt
+
+      - name: Resolve configuration
+        id: sprint
+        run: python -m sprint status
+
+      - name: Open back-merge pull requests
+        if: steps.sprint.outputs.backmerge_to_base == 'true'
+        env:
+          BASE: ${{ steps.sprint.outputs.base_branch }}
+          UAT: ${{ steps.sprint.outputs.uat_branch }}
+          LABELS: ${{ steps.sprint.outputs.labels }}
+        run: |
+          set -euo pipefail
+
+          git fetch --quiet origin
+
+          if ! git ls-remote --exit-code --heads origin "$BASE" >/dev/null 2>&1; then
+            echo "::error::base branch '$BASE' does not exist"
+            exit 1
+          fi
+
+          # UAT plus any release branch, since release hardening lands there too.
+          candidates=$(git ls-remote --heads origin "$UAT" 'refs/heads/release/*' \
+            | sed 's|.*refs/heads/||' | sort -u)
+
+          opened=0
+          for branch in $candidates; do
+            ahead=$(git rev-list --count "origin/$BASE..origin/$branch" 2>/dev/null || echo 0)
+            if [ "$ahead" -eq 0 ]; then
+              continue
+            fi
+
+            existing=$(gh pr list --head "$branch" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+            if [ -n "$existing" ]; then
+              echo "::notice::Back-merge PR #$existing already open for $branch"
+              continue
+            fi
+
+            body=$(printf '%s\n' \
+              "\`$branch\` is **$ahead commit(s)** ahead of \`$BASE\`." \
+              "" \
+              "Those commits exist only downstream. Until this merges, the next sprint" \
+              "branch will be cut without them and the change will be lost." \
+              "" \
+              "<sub>Opened by sprint-automation.</sub>")
+
+            args=(--head "$branch" --base "$BASE" --title "Back-merge $branch into $BASE" --body "$body")
+            IFS=',' read -ra labels <<< "$LABELS"
+            for label in "${labels[@]}"; do
+              [ -z "$label" ] && continue
+              gh label create "$label" --color ededed --description 'Opened by sprint automation' >/dev/null 2>&1 || true
+              args+=(--label "$label")
+            done
+
+            url=$(gh pr create "${args[@]}")
+            echo "::notice::Opened back-merge $url"
+            echo "- $branch -> $BASE ($ahead commits): $url" >> "$GITHUB_STEP_SUMMARY"
+            opened=$((opened + 1))
+          done
+
+          if [ "$opened" -eq 0 ]; then
+            echo "::notice::No drift - $BASE is current with UAT and all release branches"
+          fi

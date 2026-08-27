@@ -1,0 +1,96 @@
+# Cuts the sprint branch from the base branch on the first day of each sprint.
+# Runs daily and self-gates: on 13 of every 14 days (default cadence) it exits
+# without doing anything.
+name: Sprint - cut branch
+
+on:
+  schedule:
+    # Early enough that the branch exists before the team starts work.
+    # Boundaries are evaluated in cadence.timezone, not in this cron's UTC.
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Evaluate a specific date (YYYY-MM-DD) instead of today'
+        required: false
+        type: string
+      force:
+        description: 'Cut even if the date is not a sprint start'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sprint-cut-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: scripts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install --quiet -r requirements.txt
+
+      - name: Resolve sprint
+        id: sprint
+        env:
+          DATE_OVERRIDE: ${{ inputs.date }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DATE_OVERRIDE:-}" ]; then
+            python -m sprint status --date "$DATE_OVERRIDE"
+          else
+            python -m sprint status
+          fi
+
+      - name: Cut sprint branch
+        if: steps.sprint.outputs.is_sprint_start == 'true' || inputs.force
+        env:
+          BRANCH: ${{ steps.sprint.outputs.sprint_branch }}
+          BASE: ${{ steps.sprint.outputs.base_branch }}
+        run: |
+          set -euo pipefail
+
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "::notice::$BRANCH already exists - nothing to do"
+            exit 0
+          fi
+          if ! git ls-remote --exit-code --heads origin "$BASE" >/dev/null 2>&1; then
+            echo "::error::base branch '$BASE' does not exist. Create it, or correct branches.base in .github/sprint.yml"
+            exit 1
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$BASE"
+          git branch "$BRANCH" "origin/$BASE"
+          git push origin "$BRANCH"
+
+          echo "::notice::Cut $BRANCH from $BASE"
+          {
+            echo "### Sprint branch cut"
+            echo ""
+            echo "\`$BRANCH\` created from \`$BASE\`."
+            echo ""
+            echo "- Sprint window: ${{ steps.sprint.outputs.sprint_start }} to ${{ steps.sprint.outputs.sprint_end }}"
+            echo "- Point feature pull requests at \`$BRANCH\` for this sprint."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report a no-op day
+        if: steps.sprint.outputs.is_sprint_start != 'true' && !inputs.force
+        run: |
+          echo "::notice::Not a sprint start. Current sprint ${{ steps.sprint.outputs.sprint_branch }} runs ${{ steps.sprint.outputs.sprint_start }} to ${{ steps.sprint.outputs.sprint_end }}."

@@ -1,92 +1,170 @@
 # Sprint Branch Automation
 
-This project automates the creation of sprint branches based on a fixed 14-day sprint cycle using a Python script and GitHub Actions.
+Cuts sprint branches on your team's cadence and walks each sprint through
+DIT, SIT, UAT and release as a chain of reviewable pull requests.
 
-## Table of Contents
+Designed to be copied into every repo you own. Each repo keeps its own
+`.github/sprint.yml`, so teams on different cadences share the same tooling.
 
-- [Overview](#overview)
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Workflow](#workflow)
-- [Generating a Personal Access Token (PAT)](#generating-a-personal-access-token-pat)
-- [Creating Secrets in GitHub](#creating-secrets-in-github)
-- [Contributing](#contributing)
-- [License](#license)
+## The pipeline
 
-## Overview
-
-The purpose of this project is to automate the process of determining the start of a new sprint and creating a corresponding Git branch. The Python script calculates if today is the start of a new sprint based on a 14-day cycle and constructs a branch name. The GitHub Actions workflow runs the script daily and creates the branch if applicable.
-
-## Features
-
-- **Automated Sprint Calculation**: Determine the start of new sprints based on a fixed cycle.
-- **Dynamic Branch Creation**: Automatically create and push sprint branches.
-- **Daily Automation**: Runs daily at midnight UTC.
-- **Manual Trigger**: Can be triggered manually via GitHub Actions.
-
-## Installation
-
-1. **Clone the Repository**:
-```bash
-   git clone https://github.com/vib795/create_sprint_branch.git
-   cd create_sprint_branch
+```
+ base (develop) ──cut on sprint start──> Sprint_Q3_S5_082726_090926
+                                              │  feature PRs land here all sprint
+                                              │
+                                              │  last day of sprint: PR opens automatically
+                                              ▼
+                                          env/dit ──verify──▶ env/sit ──verify──▶ env/uat
+                                              │                                       │
+                                              │                                       │ cut
+                                              ▼                                       ▼
+                                    back-merge PR to base            release/Q3_S5_082726_090926
 ```
 
-2. **Setup Python Environment:**
-Ensure you have Python 3.x installed. You can set up a virtual environment:
+Feature branches are pull-requested into the **sprint branch**, not into the base
+branch. Everything merged during the sprint ships together.
+
+Only the first hop is automatic. `env/dit → env/sit → env/uat` each wait for a
+person to confirm the environment is actually verified, then merge the pull
+request the workflow opened.
+
+## Installing in a repository
+
 ```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+git clone https://github.com/vib795/create_sprint_branch.git
+cd create_sprint_branch
+./tools/install.sh /path/to/your/repo
 ```
 
-## Usage
-1. **Run the Script Manually:**
-You can run the script manually to see if today is a sprint start day:
+Then in that repo:
+
+1. Edit `.github/sprint.yml` — set the cadence anchor and your branch names.
+2. Confirm it reads the way you expect:
+   ```bash
+   PYTHONPATH=scripts python -m sprint validate
+   ```
+3. Add a `SPRINT_TOKEN` repository secret (see [Tokens](#tokens)).
+4. Commit, then run **Sprint - cut branch** manually with *force* to check it end to end.
+
+To roll a fix out later, re-run `install.sh` against each repo. `--check` reports
+which repos have drifted without changing anything:
+
 ```bash
-python scripts/calculate_sprint_details.py
+./tools/install.sh --check /path/to/your/repo
 ```
 
-2. **Configure GitHub Actions:**
-Ensure the workflow file is located in the correct directory. 
+## Setting your sprint cadence
 
-Configure GitHub Actions: Ensure the `create_sprint_branch.yml` file is located in the `.github/workflows/` directory of your repository.
+Sprint boundaries come from two values. The anchor is any date one of your
+sprints started; its weekday becomes the day every sprint starts. The length
+sets the end date.
 
+```yaml
+cadence:
+  anchor: 2026-01-05      # a Monday -> sprints start on Mondays
+  length_days: 14         # ends Sunday, 13 days later
+  start_weekday: monday   # optional cross-check against the anchor
+  timezone: America/Chicago
+  numbering: quarter
+```
 
-## Workflow
-[The GitHub Actions workflow](https://github.com/vib795/create_sprint_branch/blob/master/.github/workflows/create_sprint_branch.yml) is configured to run the Python script daily at midnight UTC. If today is determined to be a sprint start day, it creates a new branch named according to the calculated sprint details and pushes it to the remote repository.
+Some cadences and what they produce:
 
-## Generating a Personal Access Token (PAT)
-1. Go to GitHub Settings:
-   - Navigate to your GitHub account settings by clicking on your profile picture in the top right corner and selecting Settings.
+| Goal | `anchor` | `length_days` | First sprint |
+|---|---|---|---|
+| Thursday fortnights | `2024-06-06` (Thu) | `14` | Thu 6 Jun – Wed 19 Jun |
+| Monday fortnights | `2026-01-05` (Mon) | `14` | Mon 5 Jan – Sun 18 Jan |
+| Monday weeks | `2026-01-05` (Mon) | `7` | Mon 5 Jan – Sun 11 Jan |
+| Wednesday three-week | `2026-01-07` (Wed) | `21` | Wed 7 Jan – Tue 27 Jan |
 
-2. Generate a New Token:
-   - In the left sidebar, click on Developer settings.
-   - Click on Personal access tokens.
-   - Click the Generate new token button.
+`start_weekday` is optional and purely a guard: if it disagrees with the anchor,
+the config is rejected with an explanation rather than quietly cutting branches
+on the wrong day.
 
-3. Select Scopes:
-   - Give your token a descriptive name.
-   - Select the scopes, such as repo (Full control of private repositories).
-   - Click Generate token.
+`timezone` decides which calendar day a boundary lands on, so a team in Chicago
+gets its sprint branch on the Monday it recognises, not on UTC's.
 
-4. Save the Token:
-   - Copy the token and save it in a secure location. You will need it to create a secret in your GitHub repository.
+### Branch names
 
-## Creating Secrets in GitHub
-1. Go to Your Repository:
-   - Navigate to your GitHub repository.
-   - Click on `Settings`.
+`numbering: quarter` reproduces the established format, resetting the sprint
+number each quarter:
 
-2. Add a New Secret:
-   - In the left sidebar, click on `Secrets and variables`, then `Actions`.
-   - Click the `New repository` secret button.
-   - Name the secret `GH_PAT` and paste your personal access token in the value field.
-   - Click `Add secret`.
+```
+Sprint_Q3_S5_082726_090926     release/Q3_S5_082726_090926
+```
+
+`numbering: continuous` counts from the anchor and never resets:
+
+```
+Sprint_S59_082726_090926       release/S59_082726_090926
+```
+
+## Workflows
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| **Sprint - cut branch** | daily, or manual | On a sprint start day, cuts the sprint branch from `branches.base`. Otherwise exits. |
+| **Sprint - promote** | daily, or manual | On a sprint end day, opens the sprint → DIT pull request. Manually, runs any hop: `dit`, `sit`, `uat`, `release`. |
+| **Sprint - back-merge to base** | daily, or manual | Opens a pull request whenever UAT or a release branch is ahead of the base branch. |
+| **Sprint - validate config** | pull requests | Validates `sprint.yml` and runs the cadence tests. |
+
+All three scheduled workflows self-gate, so most days they run and do nothing.
+
+Promotions are idempotent: an existing branch, an already-open pull request, or
+a head branch with nothing the base is missing are all reported and skipped, not
+duplicated or failed.
+
+On first use in a repo, an environment branch that does not yet exist is seeded
+from the base branch so the first promotion has somewhere to land.
+
+## Why back-merge matters
+
+Branch-per-environment drifts. A hotfix applied to `env/uat` or to a release
+branch exists only there — the next sprint is cut from a base branch that lacks
+it, and the fix disappears from production.
+
+The back-merge workflow is the mitigation, and it is on by default. Merge those
+pull requests promptly; skipping them is how this model fails quietly. Set
+`promotion.backmerge_to_base: false` only if you have another mechanism.
+
+## Tokens
+
+Pull requests opened with the default `GITHUB_TOKEN` do **not** trigger other
+workflows. A promotion pull request would sit with no status checks, which
+defeats gating a promotion on checks passing.
+
+Create a fine-grained personal access token with `contents: read/write` and
+`pull requests: read/write` on the repos you are rolling this out to, and store
+it as a repository (or organisation) secret named `SPRINT_TOKEN`. The workflows
+fall back to `GITHUB_TOKEN` when it is absent, which is fine for a first trial
+run but not for enforced gating.
+
+## Local use
+
+```bash
+python -m venv venv && source venv/bin/activate
+pip install -r requirements-dev.txt
+export PYTHONPATH=scripts
+
+python -m sprint validate                       # resolved cadence for this repo
+python -m sprint status                         # where today falls
+python -m sprint status --date 2026-08-27       # any date, no clock patching
+python -m sprint promotion --hop dit            # what the next promotion would open
+pytest tests -q
+```
+
+## Repository protection
+
+This automation assumes, but does not configure, branch protection. Protect
+`base`, `env/dit`, `env/sit`, `env/uat` and `release/*` so the only route
+between environments is a reviewed pull request — otherwise the gates are
+convention rather than enforcement.
 
 ## Contributing
-Contributions are welcome! Please submit a pull request or open an issue to discuss any changes or improvements.
+
+Changes to cadence or naming need a test in `tests/test_cadence.py`. The suite
+runs without a runner, a subprocess, or a patched clock — pass the date in.
 
 ## License
-This project is licensed under the MIT License.
+
+MIT.
