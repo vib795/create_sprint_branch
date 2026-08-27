@@ -1157,6 +1157,14 @@ want sprints to start on.</pre>
               <td>A Windows clone rewrote the script to CRLF. A fresh clone is fine &mdash; <code>.gitattributes</code> pins the repo to LF. For an older clone: <code>git rm --cached -r . &amp;&amp; git reset --hard</code>.</td>
             </tr>
             <tr>
+              <td><code>cadence.timezone: unknown timezone UTC</code></td>
+              <td>Windows ships no timezone database, so Python reads one from the <code>tzdata</code> package &mdash; and without it <em>every</em> zone fails, even <code>UTC</code>. Run <code>pip install tzdata</code> (it is in <code>requirements.txt</code> from version 1.6.0). The error now says so outright rather than blaming the zone name.</td>
+            </tr>
+            <tr>
+              <td>A timezone works on a Mac but not on Windows</td>
+              <td>Casing. <code>america/chicago</code> resolves against the operating system&rsquo;s database but not against <code>tzdata</code>, which matches case-sensitively. From version 1.6.0 the name is canonicalised before the lookup, so either spelling works everywhere &mdash; update the payload if you are on an older version.</td>
+            </tr>
+            <tr>
               <td>&ldquo;base branch <code>develop</code> does not exist&rdquo;, daily</td>
               <td>The repo doesn&rsquo;t have the branch named in <code>branches.base</code>. Point it at the branch you really cut from, or create it.</td>
             </tr>
@@ -1166,7 +1174,7 @@ want sprints to start on.</pre>
             </tr>
             <tr>
               <td>No branch cut this morning</td>
-              <td>Most likely correct &mdash; it only cuts on sprint start days. Confirm with <code>python -m sprint status</code>, which prints the current window.</td>
+              <td>Most likely correct &mdash; it only cuts on sprint start days. Confirm with <code>python sprint.py status</code>, which prints the current window.</td>
             </tr>
             <tr>
               <td>&ldquo;head branch does not exist&rdquo; on promote</td>
@@ -1178,7 +1186,7 @@ want sprints to start on.</pre>
             </tr>
             <tr>
               <td>Wrong sprint number or dates</td>
-              <td>Almost always the anchor. Run <code>python -m sprint validate</code> and check the window it prints against the sprint you are actually in.</td>
+              <td>Almost always the anchor. Run <code>python sprint.py validate</code> and check the window it prints against the sprint you are actually in.</td>
             </tr>
           </tbody>
         </table>
@@ -1202,7 +1210,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.5.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.6.0. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

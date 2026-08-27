@@ -125,24 +125,47 @@ else
   echo "  wrote    $CONFIG_DEST  <-- set your cadence anchor and branch names"
 fi
 
-# Merge the runtime dependency rather than replacing a requirements file that
-# may already describe the target project.
+# Merge the runtime dependencies rather than replacing a requirements file that
+# may already describe the target project. Every requirement is checked, not
+# just PyYAML, so a dependency added here also reaches repos installed earlier.
 for req in requirements.txt requirements-dev.txt; do
   if [ ! -f "$TARGET/$req" ]; then
     cp "$SOURCE_DIR/$req" "$TARGET/$req"
     echo "  wrote    $req"
-  elif ! grep -qi '^[[:space:]]*pyyaml' "$TARGET/$req"; then
-    if [ "$req" = "requirements.txt" ]; then
-      # A file whose last line has no newline would otherwise come out as
-      # "requests==2.31.0PyYAML>=6.0", which pip refuses to parse.
-      if [ -s "$TARGET/$req" ] && [ "$(tail -c1 "$TARGET/$req" | wc -l)" -eq 0 ]; then
-        printf '\n' >> "$TARGET/$req"
-      fi
-      printf 'PyYAML>=6.0\n' >> "$TARGET/$req"
-      echo "  appended PyYAML>=6.0 to $req"
+    continue
+  fi
+  if [ "$req" != "requirements.txt" ]; then
+    echo "  kept     $req (left to the project)"
+    continue
+  fi
+
+  added=""
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -z "$line" ] && continue
+    case "$line" in -*) continue ;; esac          # -r includes and pip flags
+
+    name="${line%%[][<>=!;~ ]*}"
+    [ -z "$name" ] && continue
+    if grep -qiE "^[[:space:]]*${name}([][<>=!;~[:space:]]|\$)" "$TARGET/$req"; then
+      continue
     fi
+
+    # A file whose last line has no newline would otherwise come out as
+    # "requests==2.31.0PyYAML>=6.0", which pip refuses to parse.
+    if [ -s "$TARGET/$req" ] && [ "$(tail -c1 "$TARGET/$req" | wc -l)" -eq 0 ]; then
+      printf '\n' >> "$TARGET/$req"
+    fi
+    printf '%s\n' "$line" >> "$TARGET/$req"
+    added="$added $name"
+  done < "$SOURCE_DIR/$req"
+
+  if [ -n "$added" ]; then
+    echo "  appended$added to $req"
   else
-    echo "  kept     $req (PyYAML already present)"
+    echo "  kept     $req (runtime dependencies already present)"
   fi
 done
 

@@ -144,10 +144,17 @@ function Add-RequirementLine {
     finally { $stream.Close() }
 }
 
-function Test-MentionsPyYaml {
-    param([string] $Path)
+# "PyYAML>=6.0" -> "PyYAML"; also strips extras and environment markers.
+function Get-RequirementName {
+    param([string] $Line)
+    return ($Line -replace '[\s\[\]<>=!;~].*$', '').Trim()
+}
+
+function Test-RequirementPresent {
+    param([string] $Path, [string] $Name)
+    $pattern = '^\s*' + [regex]::Escape($Name) + '(\s|\[|\]|<|>|=|!|;|~|$)'
     foreach ($line in [System.IO.File]::ReadAllLines($Path)) {
-        if ($line -match '^\s*pyyaml') { return $true }   # -match is case-insensitive
+        if ($line -match $pattern) { return $true }       # -match is case-insensitive
     }
     return $false
 }
@@ -291,22 +298,44 @@ else {
     Write-Host "  wrote    $(ConvertTo-NativePath $configDest)  <-- set your cadence anchor and branch names"
 }
 
-# Merge the runtime dependency rather than replacing a requirements file that
-# may already describe the target project.
+# Merge the runtime dependencies rather than replacing a requirements file that
+# may already describe the target project. Every requirement is checked, not
+# just PyYAML, so a dependency added here also reaches repos installed earlier.
 foreach ($req in @('requirements.txt', 'requirements-dev.txt')) {
     $reqTarget = Join-Path $targetDir $req
+
     if (-not (Test-Path -LiteralPath $reqTarget -PathType Leaf)) {
         Copy-Item -LiteralPath (Join-Path $sourceFull $req) -Destination $reqTarget -Force
         Write-Host "  wrote    $req"
+        continue
     }
-    elseif (-not (Test-MentionsPyYaml -Path $reqTarget)) {
-        if ($req -eq 'requirements.txt') {
-            Add-RequirementLine -Path $reqTarget -Line 'PyYAML>=6.0'
-            Write-Host "  appended PyYAML>=6.0 to $req"
-        }
+    if ($req -ne 'requirements.txt') {
+        Write-Host "  kept     $req (left to the project)"
+        continue
+    }
+
+    $added = @()
+    foreach ($raw in [System.IO.File]::ReadAllLines((Join-Path $sourceFull $req))) {
+        $line = $raw
+        $comment = $line.IndexOf('#')
+        if ($comment -ge 0) { $line = $line.Substring(0, $comment) }
+        $line = $line.Trim()
+        if ($line.Length -eq 0) { continue }
+        if ($line.StartsWith('-')) { continue }      # -r includes and pip flags
+
+        $name = Get-RequirementName -Line $line
+        if ($name.Length -eq 0) { continue }
+        if (Test-RequirementPresent -Path $reqTarget -Name $name) { continue }
+
+        Add-RequirementLine -Path $reqTarget -Line $line
+        $added += $name
+    }
+
+    if ($added.Count -gt 0) {
+        Write-Host "  appended $($added -join ' ') to $req"
     }
     else {
-        Write-Host "  kept     $req (PyYAML already present)"
+        Write-Host "  kept     $req (runtime dependencies already present)"
     }
 }
 

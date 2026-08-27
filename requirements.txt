@@ -1,1 +1,6 @@
 PyYAML>=6.0
+
+# zoneinfo reads the operating system's tz database where there is one. Windows
+# ships none, and slim Linux images often drop it, so without this package every
+# cadence.timezone lookup fails there -- including "UTC".
+tzdata>=2024.1

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import dataclasses
 import datetime as dt
+from functools import lru_cache
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 import yaml
 
@@ -123,6 +124,47 @@ def _parse_anchor(value: object) -> dt.date:
     raise ConfigError(f"cadence.anchor: expected a YYYY-MM-DD date, got {value!r}")
 
 
+@lru_cache(maxsize=1)
+def _timezone_index() -> dict[str, str]:
+    """Every known IANA key, folded for case-insensitive lookup.
+
+    Empty when the platform has no tz database at all, which is how Windows
+    arrives without the tzdata package.
+    """
+    try:
+        return {name.casefold(): name for name in available_timezones()}
+    except Exception:  # pragma: no cover - no database at all
+        return {}
+
+
+def _parse_timezone(value: object) -> ZoneInfo:
+    """Resolve an IANA key to its canonical spelling on every platform.
+
+    macOS and Linux read /usr/share/zoneinfo, usually from a case-insensitive
+    filesystem, so `utc` and `america/chicago` quietly resolve there. Windows
+    has no such directory and falls back to the tzdata package, whose lookup is
+    case-sensitive, so the identical config dies with "unknown timezone utc".
+
+    Canonicalising before the lookup rather than after a failure matters: on
+    macOS `ZoneInfo("utc")` succeeds and then reports its key as "utc", so
+    repairing only the error path would still leave the two platforms printing
+    different timezones for one sprint.yml.
+    """
+    name = str(value).strip()
+    canonical = _timezone_index().get(name.casefold(), name)
+    try:
+        return ZoneInfo(canonical)
+    except (ZoneInfoNotFoundError, ValueError, KeyError) as exc:
+        if not _timezone_index():
+            # Without a database every key fails, so say that rather than
+            # blaming the name the user chose.
+            raise ConfigError(
+                f"cadence.timezone: no timezone database found, so {name!r} cannot be "
+                "resolved. Install one with: pip install tzdata"
+            ) from exc
+        raise ConfigError(f"cadence.timezone: unknown timezone {name!r}") from exc
+
+
 def _parse_cadence(raw: dict) -> Cadence:
     anchor = _parse_anchor(_require(raw, "anchor", "cadence"))
 
@@ -130,11 +172,7 @@ def _parse_cadence(raw: dict) -> Cadence:
     if not isinstance(length, int) or isinstance(length, bool) or length < 1:
         raise ConfigError(f"cadence.length_days: expected a positive integer, got {length!r}")
 
-    tz_name = raw.get("timezone", "UTC")
-    try:
-        tz = ZoneInfo(str(tz_name))
-    except (ZoneInfoNotFoundError, ValueError) as exc:
-        raise ConfigError(f"cadence.timezone: unknown timezone {tz_name!r}") from exc
+    tz = _parse_timezone(raw.get("timezone", "UTC"))
 
     numbering = str(raw.get("numbering", "quarter")).lower()
     if numbering not in NUMBERING_MODES:

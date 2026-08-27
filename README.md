@@ -390,9 +390,9 @@ python -m sprint --config template/sprint.yml validate
 python -m sprint --config template/sprint.yml status --date 2026-08-27
 
 # In a repo where the payload is installed, the default path just works:
-python -m sprint validate                       # resolved cadence for that repo
-python -m sprint status                         # where today falls
-python -m sprint promotion --hop dit            # what the next promotion would open
+python sprint.py validate                       # resolved cadence for that repo
+python sprint.py status                         # where today falls
+python sprint.py promotion --hop dit            # what the next promotion would open
 
 pytest tests -q
 ```

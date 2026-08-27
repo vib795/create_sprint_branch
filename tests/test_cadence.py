@@ -121,6 +121,29 @@ def test_days_before_the_anchor_extrapolate_backwards(tmp_path):
 def test_timezone_decides_which_day_a_sprint_boundary_falls_on(tmp_path):
     config = write_config(tmp_path, cadence={"timezone": "America/Chicago"})
     assert str(config.cadence.timezone) == "America/Chicago"
+
+
+@pytest.mark.parametrize(
+    "written, canonical",
+    [
+        ("utc", "UTC"),
+        ("Utc", "UTC"),
+        ("america/chicago", "America/Chicago"),
+        ("AMERICA/CHICAGO", "America/Chicago"),
+    ],
+)
+def test_timezone_casing_resolves_the_same_on_every_platform(tmp_path, written, canonical):
+    # macOS and Linux read /usr/share/zoneinfo, usually from a case-insensitive
+    # filesystem, so these spellings quietly work there. Windows has no such
+    # directory and reads the case-sensitive tzdata package, where the same
+    # config used to die with "cadence.timezone: unknown timezone utc".
+    config = write_config(tmp_path, cadence={"timezone": written})
+    assert str(config.cadence.timezone) == canonical
+
+
+def test_timezone_is_stripped_before_it_is_resolved(tmp_path):
+    config = write_config(tmp_path, cadence={"timezone": "  UTC  "})
+    assert str(config.cadence.timezone) == "UTC"
     assert cadence.today_in(config) is not None
 
 
