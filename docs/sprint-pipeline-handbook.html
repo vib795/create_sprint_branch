@@ -490,6 +490,8 @@
       <li><a href="#pipeline">The pipeline</a></li>
       <li><a href="#install">Install in a repo</a></li>
       <li><a href="#cadence">Set your cadence</a></li>
+      <li><a href="#names">Branch names</a></li>
+      <li><a href="#runners">Self-hosted runners</a></li>
       <li><a href="#daily">Day to day</a></li>
       <li><a href="#promote">Promoting</a></li>
       <li><a href="#backmerge">Back-merge</a></li>
@@ -852,6 +854,108 @@ want sprints to start on.</pre>
       </p>
     </section>
 
+    <section id="names">
+      <h2>Branch names your team recognises</h2>
+      <p class="section-note">
+        A name nobody recognises is a name nobody trusts. Put your board code in it.
+      </p>
+      <p>
+        Out of the box you get the historical format. Add a <code>naming</code>
+        section and the name is entirely yours:
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">.github/sprint.yml</div>
+        <pre>naming:
+  project_code: <b>PROTS</b>         <i># each team sets its own</i>
+  end_boundary: exclusive     <i># 8/13-8/27 shares its boundary with the next sprint</i>
+  sprint_template: "Q{quarter}_S{number}_{year}_{code}_{start:%m%d}-{end:%m%d}"
+  release_template: "release/{sprint}"</pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sprint starts</th><th>Branch</th><th>Release branch</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="tnum">2026-08-13</td><td class="tnum">Q3_S4_2026_PROTS_0813-0827</td><td class="tnum">release/Q3_S4_2026_PROTS_0813-0827</td></tr>
+            <tr><td class="tnum">2026-08-27</td><td class="tnum">Q3_S5_2026_PROTS_0827-0910</td><td class="tnum">release/Q3_S5_2026_PROTS_0827-0910</td></tr>
+            <tr><td class="tnum">2026-10-08</td><td class="tnum">Q4_S1_2026_PROTS_1008-1022</td><td class="tnum">release/Q4_S1_2026_PROTS_1008-1022</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The fields</h3>
+      <p>
+        <code>quarter</code>, <code>number</code>, <code>year</code>,
+        <code>code</code>, <code>index</code>, <code>start</code>,
+        <code>end</code>. Dates take strftime, so <code>{start:%m%d}</code> gives
+        <code>0813</code> and <code>{start:%Y-%m-%d}</code> gives
+        <code>2026-08-13</code>. <code>release_template</code> also gets
+        <code>{sprint}</code>, the sprint branch just built.
+      </p>
+
+      <div class="callout">
+        <p class="c-title">end_boundary changes the date, not the formatting</p>
+        <p>
+          <code>inclusive</code> ends on the sprint&rsquo;s own last day
+          (<code>8/26</code>). <code>exclusive</code> ends on the next
+          sprint&rsquo;s start (<code>8/27</code>) &mdash; how most teams write a
+          range, because the boundary is shared.
+        </p>
+      </div>
+
+      <p>
+        Every rendered name is checked against git&rsquo;s ref rules before use,
+        so a template producing a space or <code>..</code> is rejected with an
+        explanation rather than pushed. A single <code>/</code> is allowed
+        &mdash; <code>env/dit</code> and <code>release/</code> depend on it
+        &mdash; but it nests the branch, worth knowing before putting
+        <code>8/13</code> in a template.
+      </p>
+      <p>
+        Leave the <code>naming</code> section out and nothing changes: existing
+        repos keep cutting <code>Sprint_Q3_S5_082726_090926</code>.
+      </p>
+    </section>
+
+    <section id="runners">
+      <h2>Self-hosted runners</h2>
+      <p class="section-note">
+        Many organisations do not permit GitHub-hosted cloud runners. The
+        workflows assume yours are self-hosted.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">every sprint workflow</div>
+        <pre>runs-on: ${{ vars.SPRINT_RUNNER || '<b>self-hosted</b>' }}</pre>
+      </div>
+      <p>
+        Set a repository or organisation variable <code>SPRINT_RUNNER</code> to
+        override it &mdash; <code>ubuntu-latest</code> where cloud runners are
+        allowed, or a label like <code>sprint-linux</code> to pin a pool. No file
+        edits, so every repo keeps an identical payload.
+      </p>
+
+      <h3>What your runners need</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Requirement</th><th>Needed by</th></tr></thead>
+          <tbody>
+            <tr><td><code>git</code></td><td>every workflow</td></tr>
+            <tr><td>Python 3.9+ with <code>PyYAML</code></td><td>every workflow</td></tr>
+            <tr><td><code>gh</code>, authenticated via <code>GH_TOKEN</code></td><td>promote, back-merge</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1.25rem">
+        Each workflow runs a preflight that names anything missing rather than
+        failing obscurely three steps later.
+        <code>actions/setup-python</code> is marked
+        <code>continue-on-error</code> and <code>pip install</code> falls back to
+        whatever is already installed &mdash; so a runner with no route to PyPI
+        still works, provided Python and PyYAML are pre-installed on the image.
+      </p>
+    </section>
+
     <section id="daily">
       <h2>Day to day</h2>
       <p class="section-note">
@@ -1033,7 +1137,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.1.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.2.0. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

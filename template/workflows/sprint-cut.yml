@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   cut:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.SPRINT_RUNNER || 'self-hosted' }}
     env:
       PYTHONPATH: scripts
     steps:
@@ -37,13 +37,24 @@ jobs:
         with:
           fetch-depth: 0
 
+      # On a self-hosted runner this may be unable to fetch a toolchain; the
+      # preflight below confirms a usable Python either way.
       - uses: actions/setup-python@v5
+        continue-on-error: true
         with:
           python-version: '3.11'
-          cache: pip
 
       - name: Install dependencies
-        run: pip install --quiet -r requirements.txt
+        run: pip install --quiet -r requirements.txt || echo "::warning::pip install failed; falling back to packages already on the runner"
+
+      - name: Preflight - check the runner has what this needs
+        run: |
+          set -euo pipefail
+          missing=0
+          command -v git >/dev/null 2>&1 || { echo "::error::git is not on this runner"; missing=1; }
+          python3 -c "import yaml" 2>/dev/null || { echo "::error::PyYAML is not importable. Pre-install it on the runner if this network cannot reach PyPI."; missing=1; }
+          [ "$missing" -eq 0 ] || exit 1
+          echo "runner ok: $(git --version), $(python3 --version)"
 
       - name: Resolve sprint
         id: sprint

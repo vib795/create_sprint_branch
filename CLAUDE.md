@@ -111,6 +111,35 @@ from their start dates and diffing — do the same before changing `naming.py`:
 git branch -r --format='%(refname:short)' | sed 's|^origin/||' | grep '^Sprint_'
 ```
 
+### Naming templates
+
+`naming.sprint_template` is optional and, when absent, `naming.py` reproduces the
+historical format exactly — that is what keeps the 50 existing branches valid.
+When present it takes over completely, including the `Sprint_` prefix, which is
+then just characters someone typed into the template.
+
+Two things that are easy to get wrong:
+
+- `naming.end_boundary` changes the *date*, not its formatting. `exclusive`
+  renders the next sprint's start (`0827`), which is how teams write a shared
+  boundary; `inclusive` renders this sprint's last day (`0826`).
+- Every rendered name goes through `_validate_ref` before being returned. A
+  single `/` is legal and must stay legal (`env/dit`, `release/`); space, `..`,
+  `//`, `^`, `~`, `:`, a leading `-` and a `.lock` suffix are not.
+
+### Runners
+
+Template workflows use `runs-on: ${{ vars.SPRINT_RUNNER || 'self-hosted' }}`
+because the client blocks GitHub-hosted runners. Keep new workflows on that
+expression rather than hardcoding a runner: it lets a repo switch pools through
+a GitHub variable instead of a file edit, which matters when the payload is
+copied to N repos.
+
+Self-hosted runners have no guaranteed toolchain, so `actions/setup-python` is
+`continue-on-error` and `pip install` tolerates failure; the preflight step is
+what actually enforces git, PyYAML and (where needed) `gh`, naming whatever is
+missing. Preserve that ordering when editing a workflow.
+
 ### Promotion model
 
 Only sprint → DIT is automatic, on the sprint's last day. Every later hop is a

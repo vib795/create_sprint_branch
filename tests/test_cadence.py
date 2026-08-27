@@ -5,6 +5,7 @@ subprocess, or a patched clock: `sprint_for` takes the day as an argument.
 """
 
 import datetime as dt
+import re
 
 import pytest
 import yaml
@@ -285,3 +286,98 @@ def test_the_two_knobs_compose(tmp_path):
 def test_invalid_numbering_knobs_fail_loudly(tmp_path, overrides, message):
     with pytest.raises(ConfigError, match=message):
         write_config(tmp_path, **overrides)
+
+
+# --- naming templates: a name a team recognises, not a generated-looking one ---
+
+
+def test_no_template_keeps_the_historical_format(tmp_path):
+    config = write_config(tmp_path)
+    sprint = cadence.sprint_for(config, date("2026-08-27"))
+    assert naming.sprint_branch(config, sprint) == "Sprint_Q3_S5_082726_090926"
+    assert naming.release_branch(config, sprint) == "release/Q3_S5_082726_090926"
+
+
+def test_board_code_template_produces_the_agreed_pattern(tmp_path):
+    config = write_config(
+        tmp_path,
+        naming={
+            "project_code": "PROTS",
+            "end_boundary": "exclusive",
+            "sprint_template": "Q{quarter}_S{number}_{year}_{code}_{start:%m%d}-{end:%m%d}",
+            "release_template": "release/{sprint}",
+        },
+    )
+    sprint = cadence.sprint_for(config, date("2026-08-13"))
+    assert naming.sprint_branch(config, sprint) == "Q3_S4_2026_PROTS_0813-0827"
+    assert naming.release_branch(config, sprint) == "release/Q3_S4_2026_PROTS_0813-0827"
+
+
+def test_each_team_sets_its_own_board_code(tmp_path):
+    template = "Q{quarter}_S{number}_{year}_{code}_{start:%m%d}-{end:%m%d}"
+    for code in ("PROTS", "ATLAS"):
+        config = write_config(
+            tmp_path,
+            naming={"project_code": code, "end_boundary": "exclusive", "sprint_template": template},
+        )
+        sprint = cadence.sprint_for(config, date("2026-08-13"))
+        assert naming.sprint_branch(config, sprint) == f"Q3_S4_2026_{code}_0813-0827"
+
+
+def test_exclusive_end_is_the_next_sprints_start(tmp_path):
+    """8/13-8/27 shares its boundary with the next sprint; 8/13-8/26 does not."""
+    fields = {"sprint_template": "{start:%m%d}-{end:%m%d}"}
+    exclusive = write_config(tmp_path, naming={**fields, "end_boundary": "exclusive"})
+    inclusive = write_config(tmp_path, naming={**fields, "end_boundary": "inclusive"})
+    day = date("2026-08-13")
+    assert naming.sprint_branch(exclusive, cadence.sprint_for(exclusive, day)) == "0813-0827"
+    assert naming.sprint_branch(inclusive, cadence.sprint_for(inclusive, day)) == "0813-0826"
+    following = cadence.sprint_for(exclusive, date("2026-08-27"))
+    assert following.start == date("2026-08-27"), "exclusive end == next sprint's start"
+
+
+@pytest.mark.parametrize(
+    "template,fragment",
+    [
+        ("Q{quarter} S{number}", "space"),
+        ("Q{quarter}//S{number}", "'//'"),
+        ("Q{quarter}..S{number}", "'..'"),
+        ("-Q{quarter}", "starts with '-'"),
+        ("Q{quarter}.lock", "'.lock'"),
+        ("Q{quarter}^S{number}", "'^'"),
+    ],
+)
+def test_a_template_that_would_produce_an_illegal_ref_is_rejected(tmp_path, template, fragment):
+    config = write_config(tmp_path, naming={"sprint_template": template})
+    with pytest.raises(ConfigError, match=re.escape(fragment)):
+        naming.sprint_branch(config, cadence.sprint_for(config, date("2026-08-13")))
+
+
+def test_a_single_slash_is_allowed_because_refs_are_hierarchical(tmp_path):
+    """`env/dit` and `release/...` rely on it, so a slash cannot be banned.
+
+    It does nest the branch, which is worth knowing before putting a date like
+    8/13 in a template.
+    """
+    config = write_config(tmp_path, naming={"sprint_template": "sprint/Q{quarter}_S{number}"})
+    sprint = cadence.sprint_for(config, date("2026-08-13"))
+    assert naming.sprint_branch(config, sprint) == "sprint/Q3_S4"
+
+
+def test_unknown_template_field_is_caught_at_config_load(tmp_path):
+    with pytest.raises(ConfigError, match="unknown field"):
+        write_config(tmp_path, naming={"sprint_template": "Q{quarter}_{sprint_goal}"})
+
+
+def test_bad_end_boundary_explains_both_options(tmp_path):
+    with pytest.raises(ConfigError, match="next sprint's start date"):
+        write_config(tmp_path, naming={"end_boundary": "halfway"})
+
+
+def test_custom_sprint_name_without_a_release_template_still_corresponds(tmp_path):
+    config = write_config(
+        tmp_path,
+        naming={"project_code": "PROTS", "sprint_template": "Q{quarter}_S{number}_{code}"},
+    )
+    sprint = cadence.sprint_for(config, date("2026-08-13"))
+    assert naming.release_branch(config, sprint) == "release/Q3_S4_PROTS"

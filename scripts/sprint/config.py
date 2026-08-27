@@ -17,6 +17,10 @@ import yaml
 
 DEFAULT_CONFIG_PATH = Path(".github/sprint.yml")
 NUMBERING_MODES = ("quarter", "continuous")
+END_BOUNDARIES = ("inclusive", "exclusive")
+
+# Fields a naming template may reference. `end` respects naming.end_boundary.
+TEMPLATE_FIELDS = ("quarter", "number", "year", "code", "index", "start", "end")
 WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
 
 
@@ -50,6 +54,20 @@ class Branches:
 
 
 @dataclasses.dataclass(frozen=True)
+class Naming:
+    """Optional overrides for how branch names are built.
+
+    Leaving `sprint_template` unset keeps the historical format, so a repo that
+    has been cutting branches for years keeps producing identical names.
+    """
+
+    project_code: str
+    end_boundary: str
+    sprint_template: str | None
+    release_template: str | None
+
+
+@dataclasses.dataclass(frozen=True)
 class Promotion:
     auto_open_dit_pr: bool
     backmerge_to_base: bool
@@ -62,6 +80,7 @@ class Promotion:
 class SprintConfig:
     cadence: Cadence
     branches: Branches
+    naming: Naming
     promotion: Promotion
 
     def hop(self, name: str) -> tuple[str, str]:
@@ -195,6 +214,54 @@ def _parse_branches(raw: dict) -> Branches:
     return branches
 
 
+def _check_template(template: str, where: str) -> str:
+    """Reject a template that references a field we cannot supply."""
+    import string
+
+    if not isinstance(template, str) or not template.strip():
+        raise ConfigError(f"{where}: must be a non-empty string, got {template!r}")
+    for _, field, _, _ in string.Formatter().parse(template):
+        if field is None:
+            continue
+        name = field.split(".")[0].split("[")[0]
+        if name and name not in TEMPLATE_FIELDS and not (where.endswith("release_template") and name == "sprint"):
+            available = ", ".join(TEMPLATE_FIELDS)
+            extra = ", sprint" if where.endswith("release_template") else ""
+            raise ConfigError(
+                f"{where}: unknown field {{{name}}}. Available fields: {available}{extra}"
+            )
+    return template.strip()
+
+
+def _parse_naming(raw: dict) -> Naming:
+    code = raw.get("project_code", "")
+    if not isinstance(code, str):
+        raise ConfigError(f"naming.project_code: expected a string, got {code!r}")
+
+    boundary = str(raw.get("end_boundary", "inclusive")).lower()
+    if boundary not in END_BOUNDARIES:
+        raise ConfigError(
+            f"naming.end_boundary: expected one of {list(END_BOUNDARIES)}, got {boundary!r}. "
+            "'inclusive' ends on the sprint's last day; 'exclusive' ends on the next "
+            "sprint's start date."
+        )
+
+    sprint_template = raw.get("sprint_template")
+    if sprint_template is not None:
+        sprint_template = _check_template(sprint_template, "naming.sprint_template")
+
+    release_template = raw.get("release_template")
+    if release_template is not None:
+        release_template = _check_template(release_template, "naming.release_template")
+
+    return Naming(
+        project_code=code.strip(),
+        end_boundary=boundary,
+        sprint_template=sprint_template,
+        release_template=release_template,
+    )
+
+
 def _parse_promotion(raw: dict) -> Promotion:
     def flag(key: str, default: bool) -> bool:
         value = raw.get(key, default)
@@ -246,8 +313,13 @@ def load(path: Path | str | None = None) -> SprintConfig:
     if not isinstance(promotion_raw, dict):
         raise ConfigError(f"{config_path}: 'promotion' must be a mapping if present")
 
+    naming_raw = raw.get("naming") or {}
+    if not isinstance(naming_raw, dict):
+        raise ConfigError(f"{config_path}: 'naming' must be a mapping if present")
+
     return SprintConfig(
         cadence=_parse_cadence(raw["cadence"]),
         branches=_parse_branches(raw["branches"]),
+        naming=_parse_naming(naming_raw),
         promotion=_parse_promotion(promotion_raw),
     )

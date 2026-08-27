@@ -186,6 +186,70 @@ Sprint_Q3_S5_082726_090926     release/Q3_S5_082726_090926
 Sprint_S59_082726_090926       release/S59_082726_090926
 ```
 
+## Branch names your team recognises
+
+By default the historical format is produced. Add a `naming` section and the
+name is entirely yours — teams put their board code in it so a branch is
+recognisable at a glance rather than looking generated:
+
+```yaml
+naming:
+  project_code: PROTS         # each team sets its own
+  end_boundary: exclusive     # 8/13-8/27 shares its boundary with the next sprint
+  sprint_template: "Q{quarter}_S{number}_{year}_{code}_{start:%m%d}-{end:%m%d}"
+  release_template: "release/{sprint}"
+```
+
+```
+2026-08-13   Q3_S4_2026_PROTS_0813-0827   release/Q3_S4_2026_PROTS_0813-0827
+2026-08-27   Q3_S5_2026_PROTS_0827-0910   release/Q3_S5_2026_PROTS_0827-0910
+2026-10-08   Q4_S1_2026_PROTS_1008-1022   release/Q4_S1_2026_PROTS_1008-1022
+```
+
+Fields: `quarter`, `number`, `year`, `code`, `index`, `start`, `end`. Dates take
+strftime, so `{start:%m%d}` gives `0813` and `{start:%Y-%m-%d}` gives
+`2026-08-13`. `release_template` also gets `{sprint}`, the sprint branch just
+built.
+
+**`end_boundary` changes the date, not just its rendering.** `inclusive` ends on
+the sprint's own last day (`8/26`); `exclusive` ends on the next sprint's start
+(`8/27`), which is how most teams write a range.
+
+Every rendered name is checked against git's ref rules before it is used, so a
+template producing a space or `..` is rejected with an explanation rather than
+pushed. A single `/` is allowed — `env/dit` and `release/` depend on it — but it
+nests the branch, which is worth knowing before putting `8/13` in a template.
+
+Omit the `naming` section entirely and nothing changes: existing repos keep
+cutting `Sprint_Q3_S5_082726_090926`.
+
+## Running on self-hosted runners
+
+The workflows default to `self-hosted`, since many organisations do not permit
+GitHub-hosted cloud runners:
+
+```yaml
+runs-on: ${{ vars.SPRINT_RUNNER || 'self-hosted' }}
+```
+
+Set a repository or organisation variable `SPRINT_RUNNER` to override it —
+`ubuntu-latest` for a repo that may use cloud runners, or a specific label like
+`sprint-linux` to pin a runner pool. No file edits, so every repo keeps an
+identical payload.
+
+Each workflow runs a preflight that names anything missing instead of failing
+obscurely later. Your runners need:
+
+| Requirement | Used by |
+|---|---|
+| `git` | every workflow |
+| Python 3.9+ with `PyYAML` | every workflow |
+| `gh` (GitHub CLI), authenticated via `GH_TOKEN` | promote, back-merge |
+
+`actions/setup-python` is marked `continue-on-error`, and `pip install` falls
+back to whatever is already on the runner — so a runner with no route to PyPI or
+the action toolchain still works, provided Python and PyYAML are pre-installed.
+
 ## Workflows
 
 | Workflow | Trigger | What it does |

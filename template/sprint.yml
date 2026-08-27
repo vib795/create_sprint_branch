@@ -54,6 +54,30 @@ branches:
   sprint_prefix: Sprint
   release_prefix: release/
 
+# Optional. Leave this section out entirely and branch names keep the historical
+# format: Sprint_Q3_S5_082726_090926 and release/Q3_S5_082726_090926.
+naming:
+  # Your board or team code, so a branch is recognisable at a glance instead of
+  # looking randomly generated. Each team sets its own.
+  project_code: PROTS
+
+  # How the end of the date range is written.
+  #   inclusive -> the sprint's own last day        (8/13-8/26)
+  #   exclusive -> the next sprint's start date     (8/13-8/27)
+  # Most teams write ranges the exclusive way, because the boundary is shared.
+  end_boundary: exclusive
+
+  # Fields: quarter, number, year, code, index, start, end
+  # Dates take strftime, so {start:%m%d} gives 0813 and {start:%Y-%m-%d} gives
+  # 2026-08-13. The result is checked against git's ref rules before use, so a
+  # template producing a space or a slash is rejected rather than pushed.
+  sprint_template: "Q{quarter}_S{number}_{year}_{code}_{start:%m%d}-{end:%m%d}"
+  #   -> Q3_S4_2026_PROTS_0813-0827
+
+  # Same fields, plus {sprint} for the sprint branch name just built.
+  release_template: "release/{sprint}"
+  #   -> release/Q3_S4_2026_PROTS_0813-0827
+
 promotion:
   # Open the sprint -> DIT pull request automatically on the last day of a sprint.
   auto_open_dit_pr: true
