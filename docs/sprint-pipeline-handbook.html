@@ -492,6 +492,7 @@
       <li><a href="#cadence">Set your cadence</a></li>
       <li><a href="#names">Branch names</a></li>
       <li><a href="#runners">Self-hosted runners</a></li>
+      <li><a href="#verify">Prove it works</a></li>
       <li><a href="#daily">Day to day</a></li>
       <li><a href="#promote">Promoting</a></li>
       <li><a href="#backmerge">Back-merge</a></li>
@@ -988,6 +989,7 @@ want sprints to start on.</pre>
           <tbody>
             <tr><td><code>git</code></td><td>every workflow</td></tr>
             <tr><td>Python 3.9+ with <code>PyYAML</code></td><td>every workflow</td></tr>
+            <tr><td>A timezone database &mdash; <code>tzdata</code> on Windows runners</td><td>every workflow</td></tr>
             <tr><td><code>gh</code>, authenticated via <code>GH_TOKEN</code></td><td>promote, back-merge</td></tr>
           </tbody>
         </table>
@@ -1000,6 +1002,141 @@ want sprints to start on.</pre>
         whatever is already installed &mdash; so a runner with no route to PyPI
         still works, provided Python and PyYAML are pre-installed on the image.
       </p>
+    </section>
+
+    <section id="verify">
+      <h2>Prove it works</h2>
+      <p class="section-note">
+        Before you trust it with a real sprint. Work down the list &mdash; the
+        first four steps touch nothing at all, so they are safe in your live
+        repo on day one.
+      </p>
+
+      <h3>1. The CLI is the dry run</h3>
+      <p>
+        Python owns the date arithmetic and naming; the workflows own git and
+        GitHub. That split means every command below computes exactly what the
+        automation would do <em>without</em> creating a branch, opening a pull
+        request, or contacting GitHub. Nothing here can damage a repo.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">in the repo where the payload is installed</div>
+        <pre>python sprint.py validate    <i># is the config sane, and what does it resolve to</i>
+python sprint.py status      <i># where does today fall in the cycle</i></pre>
+      </div>
+      <p>
+        <code>validate</code> failing is the only one of these that means
+        something is wrong. It names the field and why.
+      </p>
+
+      <h3>2. Time-travel to the boundaries</h3>
+      <p>
+        The single question worth answering before you trust the schedule is
+        <em>which morning does a branch appear</em>. Ask it directly. Three
+        dates settle it: the day before a boundary, the boundary, and the day
+        after.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">the day a sprint ends, and the day the next one starts</div>
+        <pre>python sprint.py status --date 2026-09-09   <i># "is_sprint_end": true</i>
+python sprint.py status --date 2026-09-10   <i># "is_sprint_start": true, and the new name</i></pre>
+      </div>
+      <p>
+        <code>is_sprint_start</code> is the flag the cut workflow gates on, and
+        <code>is_sprint_end</code> gates the automatic DIT promotion. If those
+        two dates are the ones your team recognises, the cadence is right.
+      </p>
+
+      <h3>3. Read the pull request before it exists</h3>
+      <p>
+        <code>promotion</code> prints the whole plan &mdash; head branch, base
+        branch, title, body &mdash; for any hop, on any date, without opening
+        anything.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">all four hops, no side effects</div>
+        <pre>python sprint.py promotion --hop dit
+python sprint.py promotion --hop sit
+python sprint.py promotion --hop uat
+python sprint.py promotion --hop release   <i># "is_cut": true &mdash; a branch, not a merge</i></pre>
+      </div>
+      <p>
+        The release hop returns no title and no body on purpose: a release is a
+        branch cut from UAT rather than a pull request.
+      </p>
+
+      <h3>4. Run the cadence tests</h3>
+      <div class="snippet">
+        <div class="snippet-label">the suite that ships with the payload</div>
+        <pre>pip install -r requirements-dev.txt
+pytest tests -q</pre>
+      </div>
+      <p>
+        These cover the arithmetic that is easy to get quietly wrong &mdash;
+        quarter boundaries, sprints that straddle them, numbering resets,
+        timezone handling, and every rejection your config validation makes.
+        They need no runner, no network, and no git.
+      </p>
+
+      <h3>5. Dispatch the workflows, safest first</h3>
+      <p>
+        Now exercise the half that does touch git. Run these by hand from the
+        <strong>Actions</strong> tab in this order; each one proves the rung
+        below it before anything is created.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Run this</th><th>What it proves</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Sprint &ndash; validate config</code></td>
+              <td>Read-only. Proves the runner has git, Python, PyYAML and a timezone database, and that your config parses <em>there</em> and not just on your laptop. Start here.</td>
+            </tr>
+            <tr>
+              <td><code>Sprint &ndash; cut branch</code>, with <em>date</em> set to a known sprint start</td>
+              <td>Proves checkout, branch creation and push all work with your token and branch protection. Use a date you have already confirmed in step 2.</td>
+            </tr>
+            <tr>
+              <td><code>Sprint &ndash; cut branch</code>, run a second time, unchanged</td>
+              <td>Proves idempotence. It should report the branch already exists and exit green &mdash; never a duplicate, never a red build.</td>
+            </tr>
+            <tr>
+              <td><code>Sprint &ndash; promote</code>, <em>hop</em> = <code>dit</code></td>
+              <td>Proves <code>gh</code> is authenticated and can open a pull request, and that your labels exist.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1.25rem">
+        If you would rather not create anything in a live repo, do this in a
+        throwaway repo first: install the payload there, create the base branch,
+        and run the same four.
+      </p>
+
+      <h3>What runs automatically once you stop testing</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Gate</th><th>When it fires</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Sprint &ndash; validate config</code></td>
+              <td>On every pull request touching <code>.github/sprint.yml</code>, the sprint workflows, <code>scripts/sprint/</code> or <code>tests/</code>. This is what stops a bad cadence edit from reaching your default branch.</td>
+            </tr>
+            <tr>
+              <td>The three daily workflows</td>
+              <td>Every morning. They self-gate, so on most days they run and deliberately do nothing &mdash; a green run with no branch is the normal result, not a failure.</td>
+            </tr>
+            <tr>
+              <td><code>install.ps1 -Check</code> / <code>install.sh --check</code></td>
+              <td>Whenever you want it. Reports whether this repo has drifted from the template, and at which version, without changing a file.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section id="daily">
@@ -1210,7 +1347,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.6.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.6.1. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

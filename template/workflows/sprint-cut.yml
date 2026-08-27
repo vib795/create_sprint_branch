@@ -30,6 +30,12 @@ concurrency:
 jobs:
   cut:
     runs-on: ${{ vars.SPRINT_RUNNER || 'self-hosted' }}
+    # Every run: block below is bash. A Windows self-hosted runner defaults to
+    # PowerShell, which parses `set -euo pipefail` as a command name and fails
+    # the step outright, so the shell is pinned rather than inherited.
+    defaults:
+      run:
+        shell: bash
     env:
       PYTHONPATH: scripts
     steps:
@@ -53,6 +59,7 @@ jobs:
           missing=0
           command -v git >/dev/null 2>&1 || { echo "::error::git is not on this runner"; missing=1; }
           python3 -c "import yaml" 2>/dev/null || { echo "::error::PyYAML is not importable. Pre-install it on the runner if this network cannot reach PyPI."; missing=1; }
+          python3 -c "from zoneinfo import ZoneInfo; ZoneInfo('UTC')" 2>/dev/null || { echo "::error::No timezone database on this runner. Windows ships none; pre-install it with: pip install tzdata"; missing=1; }
           [ "$missing" -eq 0 ] || exit 1
           echo "runner ok: $(git --version), $(python3 --version)"
 
