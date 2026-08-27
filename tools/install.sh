@@ -5,31 +5,36 @@
 #   tools/install.sh /path/to/repo            copy the payload in
 #   tools/install.sh --check /path/to/repo    report drift, change nothing
 #
-# You chose copy-per-repo over a shared reusable workflow, so this exists to
-# make the rollout and every later fix one command per repo instead of a
-# hand-edit per repo. The version stamp is what makes drift detectable.
+# The payload lives under template/ so that this repo never runs the automation
+# on itself. Source and destination paths differ, which is what the mapping
+# below encodes: template/workflows/*.yml lands in .github/workflows/, and
+# template/sprint.yml becomes the target repo's .github/sprint.yml.
 set -euo pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(cat "$SOURCE_DIR/VERSION")"
 CHECK_ONLY=false
 
+# source-relative-path:destination-relative-path
 PAYLOAD=(
-  ".github/workflows/sprint-cut.yml"
-  ".github/workflows/sprint-promote.yml"
-  ".github/workflows/sprint-backmerge.yml"
-  ".github/workflows/sprint-validate.yml"
-  "scripts/sprint/__init__.py"
-  "scripts/sprint/__main__.py"
-  "scripts/sprint/cadence.py"
-  "scripts/sprint/config.py"
-  "scripts/sprint/naming.py"
-  "tests/conftest.py"
-  "tests/test_cadence.py"
+  "template/workflows/sprint-cut.yml:.github/workflows/sprint-cut.yml"
+  "template/workflows/sprint-promote.yml:.github/workflows/sprint-promote.yml"
+  "template/workflows/sprint-backmerge.yml:.github/workflows/sprint-backmerge.yml"
+  "template/workflows/sprint-validate.yml:.github/workflows/sprint-validate.yml"
+  "scripts/sprint/__init__.py:scripts/sprint/__init__.py"
+  "scripts/sprint/__main__.py:scripts/sprint/__main__.py"
+  "scripts/sprint/cadence.py:scripts/sprint/cadence.py"
+  "scripts/sprint/config.py:scripts/sprint/config.py"
+  "scripts/sprint/naming.py:scripts/sprint/naming.py"
+  "tests/conftest.py:tests/conftest.py"
+  "tests/test_cadence.py:tests/test_cadence.py"
 )
 
+CONFIG_SOURCE="template/sprint.yml"
+CONFIG_DEST=".github/sprint.yml"
+
 usage() {
-  sed -n '3,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '3,7p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -61,42 +66,51 @@ STAMP="$TARGET/.github/.sprint-automation-version"
 if [ "$CHECK_ONLY" = true ]; then
   installed="none"
   [ -f "$STAMP" ] && installed="$(cat "$STAMP")"
-  echo "template version: $VERSION"
+  echo "template version:  $VERSION"
   echo "installed version: $installed"
   drift=0
-  for file in "${PAYLOAD[@]}"; do
-    if [ ! -f "$TARGET/$file" ]; then
-      echo "  MISSING  $file"
+  for entry in "${PAYLOAD[@]}"; do
+    src="${entry%%:*}"
+    dest="${entry##*:}"
+    if [ ! -f "$TARGET/$dest" ]; then
+      echo "  MISSING  $dest"
       drift=$((drift + 1))
-    elif ! cmp -s "$SOURCE_DIR/$file" "$TARGET/$file"; then
-      echo "  DIFFERS  $file"
+    elif ! cmp -s "$SOURCE_DIR/$src" "$TARGET/$dest"; then
+      echo "  DIFFERS  $dest"
       drift=$((drift + 1))
     fi
   done
-  if [ -f "$TARGET/.github/sprint.yml" ]; then
-    echo "  config   .github/sprint.yml present (never overwritten by this script)"
+  if [ -f "$TARGET/$CONFIG_DEST" ]; then
+    echo "  config   $CONFIG_DEST present (never overwritten by this script)"
   else
-    echo "  MISSING  .github/sprint.yml"
+    echo "  MISSING  $CONFIG_DEST"
     drift=$((drift + 1))
   fi
-  [ "$drift" -eq 0 ] && echo "up to date" || echo "$drift file(s) need attention - rerun without --check"
+  if [ "$drift" -eq 0 ]; then
+    echo "up to date"
+  else
+    echo "$drift file(s) need attention - rerun without --check"
+  fi
   exit 0
 fi
 
 echo "Installing sprint-automation $VERSION into $TARGET"
 
-for file in "${PAYLOAD[@]}"; do
-  mkdir -p "$TARGET/$(dirname "$file")"
-  cp "$SOURCE_DIR/$file" "$TARGET/$file"
-  echo "  wrote    $file"
+for entry in "${PAYLOAD[@]}"; do
+  src="${entry%%:*}"
+  dest="${entry##*:}"
+  mkdir -p "$TARGET/$(dirname "$dest")"
+  cp "$SOURCE_DIR/$src" "$TARGET/$dest"
+  echo "  wrote    $dest"
 done
 
 # The config carries per-team cadence, so an existing one is never clobbered.
-if [ -f "$TARGET/.github/sprint.yml" ]; then
-  echo "  kept     .github/sprint.yml (existing config left untouched)"
+if [ -f "$TARGET/$CONFIG_DEST" ]; then
+  echo "  kept     $CONFIG_DEST (existing config left untouched)"
 else
-  cp "$SOURCE_DIR/.github/sprint.yml" "$TARGET/.github/sprint.yml"
-  echo "  wrote    .github/sprint.yml  <-- set your cadence anchor and branch names"
+  mkdir -p "$TARGET/$(dirname "$CONFIG_DEST")"
+  cp "$SOURCE_DIR/$CONFIG_SOURCE" "$TARGET/$CONFIG_DEST"
+  echo "  wrote    $CONFIG_DEST  <-- set your cadence anchor and branch names"
 fi
 
 # Merge the runtime dependency rather than replacing a requirements file that

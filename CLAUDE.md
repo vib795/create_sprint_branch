@@ -17,6 +17,21 @@ when someone re-runs `tools/install.sh` against them. Treat every edit to the
 payload as something N repos will eventually need, and keep `VERSION` bumped so
 `--check` can detect drift.
 
+**This repo never runs the automation on itself.** The copyable payload lives
+under `template/`, and `.github/workflows/` holds only `ci.yml`. That separation
+is deliberate: a scheduled workflow here would cut sprint branches on the
+template repo. Never add a `schedule:` trigger to `.github/workflows/`; new
+scheduled workflows belong in `template/workflows/`, and `tools/install.sh`
+needs a matching `source:destination` entry in its `PAYLOAD` array or the file
+silently never reaches any repo.
+
+| Path here | Installed as |
+|---|---|
+| `template/sprint.yml` | `.github/sprint.yml` |
+| `template/workflows/*.yml` | `.github/workflows/*.yml` |
+| `scripts/sprint/`, `tests/` | same paths |
+| `.github/workflows/ci.yml` | never copied |
+
 ## Commands
 
 ```bash
@@ -24,9 +39,12 @@ python -m venv venv && source venv/bin/activate
 pip install -r requirements-dev.txt
 export PYTHONPATH=scripts          # the workflows set this too
 
-python -m sprint validate                  # resolved cadence for this repo's sprint.yml
+# This repo has no .github/sprint.yml; name the template config explicitly.
+python -m sprint --config template/sprint.yml validate
+python -m sprint --config template/sprint.yml status --date 2026-08-27
+
+# In an installed repo the default path (.github/sprint.yml) is found automatically.
 python -m sprint status                    # where today falls in the cycle
-python -m sprint status --date 2026-08-27  # any date; no clock patching needed
 python -m sprint promotion --hop dit       # plan a hop: dit | sit | uat | release
 
 pytest tests -q                            # whole suite (fast, no network, no git)

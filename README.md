@@ -6,6 +6,19 @@ DIT, SIT, UAT and release as a chain of reviewable pull requests.
 Designed to be copied into every repo you own. Each repo keeps its own
 `.github/sprint.yml`, so teams on different cadences share the same tooling.
 
+**This repo holds the logic; it does not run the automation on itself.** The
+copyable payload lives under `template/`, so nothing here is scheduled and no
+sprint branch is ever cut on this repo.
+
+```
+template/sprint.yml         -> installed as .github/sprint.yml
+template/workflows/*.yml    -> installed into .github/workflows/
+scripts/sprint/             -> copied as-is
+tests/                      -> copied as-is
+tools/install.sh            -> the rollout tool
+.github/workflows/ci.yml    -> this repo's own CI, never copied
+```
+
 ## The pipeline
 
 ```
@@ -108,7 +121,9 @@ Sprint_S59_082726_090926       release/S59_082726_090926
 | **Sprint - back-merge to base** | daily, or manual | Opens a pull request whenever UAT or a release branch is ahead of the base branch. |
 | **Sprint - validate config** | pull requests | Validates `sprint.yml` and runs the cadence tests. |
 
-All three scheduled workflows self-gate, so most days they run and do nothing.
+These live in `template/workflows/` here and are installed into
+`.github/workflows/` in each target repo. All three scheduled workflows
+self-gate, so most days they run and do nothing.
 
 Promotions are idempotent: an existing branch, an already-open pull request, or
 a head branch with nothing the base is missing are all reported and skipped, not
@@ -146,10 +161,15 @@ python -m venv venv && source venv/bin/activate
 pip install -r requirements-dev.txt
 export PYTHONPATH=scripts
 
-python -m sprint validate                       # resolved cadence for this repo
+# In this repo the config lives at template/sprint.yml, so name it explicitly:
+python -m sprint --config template/sprint.yml validate
+python -m sprint --config template/sprint.yml status --date 2026-08-27
+
+# In a repo where the payload is installed, the default path just works:
+python -m sprint validate                       # resolved cadence for that repo
 python -m sprint status                         # where today falls
-python -m sprint status --date 2026-08-27       # any date, no clock patching
 python -m sprint promotion --hop dit            # what the next promotion would open
+
 pytest tests -q
 ```
 

@@ -1,0 +1,65 @@
+# CI for the template repo itself.
+#
+# This repo holds the logic other repos copy; it does not run the sprint
+# automation on itself. The payload lives in template/ precisely so nothing
+# here is scheduled -- see tools/install.sh for what gets copied where.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: scripts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install --quiet -r requirements-dev.txt
+
+      - name: Run cadence tests
+        run: pytest tests -q
+
+      - name: Validate the template config
+        run: python -m sprint --config template/sprint.yml validate | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Check every template workflow parses
+        run: |
+          set -euo pipefail
+          for file in template/workflows/*.yml; do
+            python -c "import sys, yaml; yaml.safe_load(open(sys.argv[1]))" "$file"
+            echo "ok $file"
+          done
+
+      - name: Install into a scratch repo and verify it works there
+        run: |
+          set -euo pipefail
+          scratch="$(mktemp -d)/target"
+          mkdir -p "$scratch"
+          git -C "$scratch" init -q
+
+          ./tools/install.sh "$scratch"
+          ./tools/install.sh --check "$scratch"
+
+          # The installed copy must resolve a sprint on its own, from the paths
+          # a real repo would use.
+          ( cd "$scratch" && PYTHONPATH=scripts python -m sprint validate )
+          ( cd "$scratch" && PYTHONPATH=scripts python -m sprint status )
+
+          for file in .github/sprint.yml .github/workflows/sprint-cut.yml scripts/sprint/cadence.py; do
+            test -f "$scratch/$file" || { echo "::error::install.sh did not produce $file"; exit 1; }
+          done
+          echo "install verified"
