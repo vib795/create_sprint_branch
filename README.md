@@ -99,6 +99,35 @@ Some cadences and what they produce:
 the config is rejected with an explanation rather than quietly cutting branches
 on the wrong day.
 
+### Adopting part-way through an existing scheme
+
+Nobody wants their sprint counter reset to 1 because they installed a tool.
+`start_number` says what to call the sprint that starts on the anchor:
+
+```yaml
+cadence:
+  numbering: continuous
+  start_number: 23        # anchor sprint is S23, then S24, S25, ...
+```
+
+Under `numbering: quarter` it labels the anchor's own quarter and later quarters
+restart at 1 as usual — otherwise every quarter forever would open at
+`start_number`.
+
+### Quarters that do not open in January
+
+`fiscal_year_start_month` is the month Q1 counts from. The default of `1` gives
+ordinary calendar quarters. A firm whose financial year opens in April sets `4`,
+and then July — calendar Q3 — is reported as Q2:
+
+```yaml
+cadence:
+  fiscal_year_start_month: 4
+```
+
+Both knobs are set once and stay correct indefinitely. A sprint that straddles a
+quarter boundary keeps the quarter it started in.
+
 `timezone` decides which calendar day a boundary lands on, so a team in Chicago
 gets its sprint branch on the Monday it recognises, not on UTC's.
 

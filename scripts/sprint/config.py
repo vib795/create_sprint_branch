@@ -30,6 +30,8 @@ class Cadence:
     length_days: int
     timezone: ZoneInfo
     numbering: str
+    start_number: int
+    fiscal_year_start_month: int
 
     @property
     def start_weekday(self) -> str:
@@ -121,7 +123,31 @@ def _parse_cadence(raw: dict) -> Cadence:
             f"cadence.numbering: expected one of {list(NUMBERING_MODES)}, got {numbering!r}"
         )
 
-    cadence = Cadence(anchor=anchor, length_days=length, timezone=tz, numbering=numbering)
+    start_number = raw.get("start_number", 1)
+    if not isinstance(start_number, int) or isinstance(start_number, bool) or start_number < 1:
+        raise ConfigError(
+            f"cadence.start_number: expected a positive integer, got {start_number!r}"
+        )
+
+    fiscal_start = raw.get("fiscal_year_start_month", 1)
+    if (
+        not isinstance(fiscal_start, int)
+        or isinstance(fiscal_start, bool)
+        or not 1 <= fiscal_start <= 12
+    ):
+        raise ConfigError(
+            "cadence.fiscal_year_start_month: expected a month number from 1 to 12, "
+            f"got {fiscal_start!r}"
+        )
+
+    cadence = Cadence(
+        anchor=anchor,
+        length_days=length,
+        timezone=tz,
+        numbering=numbering,
+        start_number=start_number,
+        fiscal_year_start_month=fiscal_start,
+    )
 
     # start_weekday is optional and purely a cross-check: the anchor already
     # determines it. Declaring both and disagreeing means someone edited one

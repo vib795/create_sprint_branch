@@ -696,7 +696,9 @@ cd create_sprint_branch
   length_days: <b>14</b>             <i># so each one ends 13 days later, on a Wednesday</i>
   start_weekday: thursday    <i># optional guard, must match the anchor</i>
   timezone: America/Chicago  <i># the day your team recognises, not UTC</i>
-  numbering: quarter         <i># or: continuous</i></pre>
+  numbering: quarter         <i># or: continuous</i>
+  start_number: <b>1</b>            <i># what to call the sprint at the anchor</i>
+  fiscal_year_start_month: <b>1</b> <i># month your Q1 counts from</i></pre>
       </div>
 
       <p>
@@ -735,6 +737,49 @@ cd create_sprint_branch
 (2026-01-05) is a <b>monday</b>. Move the anchor to the friday you
 want sprints to start on.</pre>
       </div>
+
+      <h3>Joining part-way through an existing scheme</h3>
+      <p>
+        Nobody wants their sprint counter reset to 1 because they installed a
+        tool. <code>start_number</code> says what to call the sprint that starts
+        on the anchor &mdash; set it once and counting carries on.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">already on sprint 23</div>
+        <pre>cadence:
+  numbering: continuous
+  start_number: <b>23</b>     <i># anchor sprint is S23, then S24, S25, ...</i></pre>
+      </div>
+      <p>
+        Under <code>numbering: quarter</code> it labels the anchor&rsquo;s own
+        quarter, and later quarters restart at 1 as usual &mdash; otherwise every
+        quarter forever would open at <code>start_number</code>.
+      </p>
+
+      <h3>Quarters that don&rsquo;t open in January</h3>
+      <p>
+        <code>fiscal_year_start_month</code> is the month Q1 counts from. Leave
+        it at <code>1</code> for ordinary calendar quarters. A firm whose
+        financial year opens in April sets <code>4</code>, and then July &mdash;
+        calendar Q3 &mdash; is reported as Q2.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Year opens</th><th>Setting</th><th>27 Aug 2026 reports as</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>January</td><td class="tnum">1 <em>(default)</em></td><td class="tnum">Q3</td></tr>
+            <tr><td>April</td><td class="tnum">4</td><td class="tnum">Q2</td></tr>
+            <tr><td>July</td><td class="tnum">7</td><td class="tnum">Q1</td></tr>
+            <tr><td>October</td><td class="tnum">10</td><td class="tnum">Q4</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1rem">
+        Both are set once and stay right indefinitely. A sprint straddling a
+        quarter boundary keeps the quarter it started in.
+      </p>
 
       <h3>Branch names</h3>
       <p>
@@ -927,7 +972,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.0.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.1.0. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

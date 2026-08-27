@@ -25,6 +25,18 @@ cadence:
   # continuous -> Sprint_S58_082726_090926    (numbering runs from the anchor)
   numbering: quarter
 
+  # What to call the sprint that starts on the anchor. Use this when adopting
+  # the automation part-way through an existing scheme, so numbering carries on
+  # instead of restarting at 1.
+  #   continuous -> counts up from here forever (23, 24, 25, ...)
+  #   quarter    -> labels the anchor's quarter only; later quarters restart at 1
+  start_number: 1
+
+  # The month your financial year opens, which is what Q1 is counted from.
+  # 1 (January) gives ordinary calendar quarters. A firm whose year opens in
+  # April sets 4, and then July -- calendar Q3 -- is reported as Q2.
+  fiscal_year_start_month: 1
+
 branches:
   # Sprint branches are cut from here, and back-merge PRs target it.
   base: develop

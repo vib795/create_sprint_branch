@@ -180,3 +180,108 @@ def test_hop_pairs_walk_the_environment_chain(tmp_path):
     assert config.hop("uat") == ("env/sit", "env/uat")
     with pytest.raises(ConfigError):
         config.hop("prod")
+
+
+# --- start_number: adopting the tooling mid-way through an existing scheme ---
+
+
+def test_start_number_defaults_to_one(tmp_path):
+    config = write_config(tmp_path)
+    assert config.cadence.start_number == 1
+    assert cadence.sprint_for(config, date("2024-06-06")).number == 1
+
+
+def test_continuous_numbering_starts_at_start_number(tmp_path):
+    """A team already on Sprint 23 keeps counting rather than restarting."""
+    config = write_config(tmp_path, cadence={"numbering": "continuous", "start_number": 23})
+    assert cadence.sprint_for(config, date("2024-06-06")).number == 23
+    assert cadence.sprint_for(config, date("2024-06-20")).number == 24
+    assert naming.sprint_branch(config, cadence.sprint_for(config, date("2024-06-06"))) == (
+        "Sprint_S23_060624_061924"
+    )
+
+
+def test_quarter_numbering_offsets_only_the_anchor_quarter(tmp_path):
+    """start_number labels the anchor sprint; later quarters restart at 1."""
+    config = write_config(tmp_path, cadence={"numbering": "quarter", "start_number": 7})
+    assert cadence.sprint_for(config, date("2024-06-06")).number == 7
+    assert cadence.sprint_for(config, date("2024-06-20")).number == 8
+    later = cadence.sprint_for(config, date("2024-07-04"))
+    assert (later.quarter, later.number) == (3, 1)
+
+
+# --- fiscal_year_start_month: quarters that do not open in January ---
+
+
+def test_fiscal_year_defaults_to_calendar_quarters(tmp_path):
+    config = write_config(tmp_path)
+    assert config.cadence.fiscal_year_start_month == 1
+    assert cadence.sprint_for(config, date("2026-08-27")).quarter == 3
+
+
+@pytest.mark.parametrize(
+    "fiscal_start,day,expected_quarter",
+    [
+        (1, "2026-08-27", 3),   # calendar: Jul-Sep is Q3
+        (4, "2026-08-27", 2),   # April year: Jul-Sep is Q2
+        (4, "2026-04-09", 1),   # first quarter of an April fiscal year
+        (4, "2026-02-12", 4),   # Jan-Mar closes the year that opened last April
+        (7, "2026-08-27", 1),   # July year: August sits in its opening quarter
+        (10, "2026-08-27", 4),
+    ],
+)
+def test_fiscal_year_start_month_shifts_the_quarter(tmp_path, fiscal_start, day, expected_quarter):
+    """Each `day` here is itself a sprint start, so the sprint's quarter is the day's.
+
+    A sprint that straddles a quarter boundary deliberately keeps the quarter it
+    started in, which is covered separately.
+    """
+    config = write_config(tmp_path, cadence={"fiscal_year_start_month": fiscal_start})
+    sprint = cadence.sprint_for(config, date(day))
+    assert sprint.start == date(day), "test fixture must be a sprint start date"
+    assert sprint.quarter == expected_quarter
+
+
+def test_a_sprint_straddling_the_fiscal_new_year_keeps_its_start_quarter(tmp_path):
+    config = write_config(tmp_path, cadence={"fiscal_year_start_month": 4})
+    sprint = cadence.sprint_for(config, date("2026-04-02"))
+    assert sprint.start == date("2026-03-26")
+    assert sprint.quarter == 4, "started in the closing quarter, so it stays there"
+
+
+def test_fiscal_quarters_stay_contiguous_across_the_year_boundary(tmp_path):
+    """Every day of an April fiscal year lands in exactly one quarter, 1 through 4."""
+    config = write_config(tmp_path, cadence={"fiscal_year_start_month": 4})
+    seen = {}
+    day = date("2026-04-01")
+    while day < date("2027-04-01"):
+        seen.setdefault(cadence.sprint_for(config, day).quarter, []).append(day)
+        day += dt.timedelta(days=1)
+    assert sorted(seen) == [1, 2, 3, 4]
+    assert len(seen[1]) + len(seen[2]) + len(seen[3]) + len(seen[4]) == 365
+
+
+def test_the_two_knobs_compose(tmp_path):
+    config = write_config(
+        tmp_path,
+        cadence={"numbering": "quarter", "start_number": 4, "fiscal_year_start_month": 4},
+    )
+    sprint = cadence.sprint_for(config, date("2024-06-06"))
+    assert (sprint.quarter, sprint.number) == (1, 4)
+    assert naming.sprint_branch(config, sprint) == "Sprint_Q1_S4_060624_061924"
+
+
+@pytest.mark.parametrize(
+    "overrides,message",
+    [
+        ({"cadence": {"start_number": 0}}, "start_number"),
+        ({"cadence": {"start_number": -3}}, "start_number"),
+        ({"cadence": {"start_number": "seven"}}, "start_number"),
+        ({"cadence": {"fiscal_year_start_month": 0}}, "1 to 12"),
+        ({"cadence": {"fiscal_year_start_month": 13}}, "1 to 12"),
+        ({"cadence": {"fiscal_year_start_month": "April"}}, "1 to 12"),
+    ],
+)
+def test_invalid_numbering_knobs_fail_loudly(tmp_path, overrides, message):
+    with pytest.raises(ConfigError, match=message):
+        write_config(tmp_path, **overrides)
