@@ -63,3 +63,40 @@ jobs:
             test -f "$scratch/$file" || { echo "::error::install.sh did not produce $file"; exit 1; }
           done
           echo "install verified"
+
+      - name: Every payload file is listed in the manifest
+        run: |
+          set -euo pipefail
+          missing=0
+          while IFS= read -r file; do
+            if ! grep -q "^[[:space:]]*${file}:" tools/payload.manifest; then
+              echo "::error::$file is missing from tools/payload.manifest, so no repo would ever receive it"
+              missing=$((missing + 1))
+            fi
+          done < <(find scripts/sprint template/workflows tests \
+                     -type f \( -name '*.py' -o -name '*.yml' \) | sort)
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          echo "manifest covers every payload file"
+
+      - name: install.ps1 produces the same tree as install.sh
+        run: |
+          set -euo pipefail
+          if ! command -v pwsh >/dev/null 2>&1; then
+            echo "::warning::pwsh unavailable; skipped the Windows installer parity check"
+            exit 0
+          fi
+          root="$(mktemp -d)"
+          mkdir -p "$root/sh" "$root/ps"
+          git -C "$root/sh" init -q
+          git -C "$root/ps" init -q
+
+          # Same starting point, including the case that used to glue PyYAML
+          # onto a requirements file with no trailing newline.
+          printf 'requests==2.31.0' > "$root/sh/requirements.txt"
+          printf 'requests==2.31.0' > "$root/ps/requirements.txt"
+
+          ./tools/install.sh "$root/sh"
+          pwsh -NoProfile -File ./tools/install.ps1 "$root/ps"
+
+          diff -r --exclude=.git "$root/sh" "$root/ps"
+          echo "install.ps1 and install.sh agree byte for byte"

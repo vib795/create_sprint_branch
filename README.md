@@ -16,7 +16,9 @@ template/sprint.yml         -> installed as .github/sprint.yml
 template/workflows/*.yml    -> installed into .github/workflows/
 scripts/sprint/             -> copied as-is
 tests/                      -> copied as-is
-tools/install.sh            -> the rollout tool
+tools/install.sh            -> the rollout tool, macOS and Linux
+tools/install.ps1           -> the rollout tool, Windows
+tools/payload.manifest      -> the file list both installers read
 .github/workflows/ci.yml    -> this repo's own CI, never copied
 ```
 
@@ -49,10 +51,24 @@ give the same result.
 
 ## Installing in a repository
 
+There are two installers and they are interchangeable. Both read
+`tools/payload.manifest`, so a repo installed from Windows is byte-for-byte the
+same as one installed from macOS — and either one can `--check` the other's work.
+
+**macOS and Linux**
+
 ```bash
 git clone https://github.com/vib795/create_sprint_branch.git
 cd create_sprint_branch
 ./tools/install.sh /path/to/your/repo
+```
+
+**Windows** (PowerShell, including Windows PowerShell 5.1 on a locked-down VDI)
+
+```powershell
+git clone https://github.com/vib795/create_sprint_branch.git
+cd create_sprint_branch
+.\tools\install.ps1 C:\path\to\your\repo
 ```
 
 Then in that repo:
@@ -60,17 +76,42 @@ Then in that repo:
 1. Edit `.github/sprint.yml` — set the cadence anchor and your branch names.
 2. Confirm it reads the way you expect:
    ```bash
-   PYTHONPATH=scripts python -m sprint validate
+   PYTHONPATH=scripts python -m sprint validate     # bash
+   ```
+   ```powershell
+   $env:PYTHONPATH = "scripts"; python -m sprint validate    # PowerShell
    ```
 3. Add a `SPRINT_TOKEN` repository secret (see [Tokens](#tokens)).
 4. Commit, then run **Sprint - cut branch** manually with *force* to check it end to end.
 
-To roll a fix out later, re-run `install.sh` against each repo. `--check` reports
-which repos have drifted without changing anything:
+To roll a fix out later, re-run the installer against each repo. Check mode
+reports which repos have drifted without changing anything:
 
 ```bash
-./tools/install.sh --check /path/to/your/repo
+./tools/install.sh --check /path/to/your/repo         # bash
 ```
+```powershell
+.\tools\install.ps1 -Check C:\path\to\your\repo       # PowerShell (--check also works)
+```
+
+### If the installer does nothing on Windows
+
+`./tools/install.sh` cannot run in PowerShell — PowerShell hands `.sh` files to
+the Windows file association, which usually means a window flashes open and
+shuts, or nothing visible happens at all. Use `install.ps1` instead; it needs
+no Git Bash, no WSL and no Python to do the copying.
+
+Two other things bite on a corporate VDI:
+
+- **Execution policy.** If PowerShell refuses to run the script, start it as
+  `powershell -ExecutionPolicy Bypass -File .\tools\install.ps1 C:\path\to\repo`.
+  If you downloaded a ZIP rather than cloning, Windows also marks the files as
+  web content — clear that with `Unblock-File .\tools\install.ps1` first.
+- **Line endings.** Git for Windows rewrites files to CRLF by default, which is
+  what makes `install.sh` fail with `bad interpreter: /usr/bin/env bash^M` even
+  in Git Bash. This repo ships a `.gitattributes` that pins everything to LF, so
+  a fresh clone is already correct; an older clone is fixed with
+  `git rm --cached -r . && git reset --hard`.
 
 ## Setting your sprint cadence
 

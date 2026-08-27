@@ -13,17 +13,18 @@ base (develop) → Sprint_<slug> → env/dit → env/sit → env/uat → release
 ```
 
 Because it is copied rather than referenced, changes here reach other repos only
-when someone re-runs `tools/install.sh` against them. Treat every edit to the
-payload as something N repos will eventually need, and keep `VERSION` bumped so
-`--check` can detect drift.
+when someone re-runs an installer against them. Treat every edit to the payload
+as something N repos will eventually need, and keep `VERSION` bumped so check
+mode can detect drift.
 
 **This repo never runs the automation on itself.** The copyable payload lives
 under `template/`, and `.github/workflows/` holds only `ci.yml`. That separation
 is deliberate: a scheduled workflow here would cut sprint branches on the
 template repo. Never add a `schedule:` trigger to `.github/workflows/`; new
-scheduled workflows belong in `template/workflows/`, and `tools/install.sh`
-needs a matching `source:destination` entry in its `PAYLOAD` array or the file
-silently never reaches any repo.
+scheduled workflows belong in `template/workflows/`, and every new payload file
+needs a `source:destination` line in `tools/payload.manifest` or it silently
+never reaches any repo. CI fails if a file under `scripts/sprint/`,
+`template/workflows/` or `tests/` is missing from the manifest.
 
 | Path here | Installed as |
 |---|---|
@@ -31,6 +32,29 @@ silently never reaches any repo.
 | `template/workflows/*.yml` | `.github/workflows/*.yml` |
 | `scripts/sprint/`, `tests/` | same paths |
 | `.github/workflows/ci.yml` | never copied |
+| `tools/`, `VERSION` | never copied |
+
+### Two installers, one manifest
+
+`tools/install.sh` (macOS, Linux) and `tools/install.ps1` (Windows) are peers.
+Both read `tools/payload.manifest`, which exists so they cannot disagree about
+what gets copied — put the file list in the manifest, never back into either
+script. They must produce byte-identical trees, and CI diffs one against the
+other to prove it.
+
+Two things to preserve when editing either one:
+
+- Anything written by hand rather than copied has to match on both sides.
+  `install.ps1` writes the version stamp through `UTF8Encoding($false)` and
+  appends with an explicit `\n`, because Windows PowerShell 5.1 would otherwise
+  emit a BOM and CRLF and make every later check report drift.
+- `install.ps1` targets **Windows PowerShell 5.1**, which is what a locked-down
+  VDI actually has — not just PowerShell 7. No `??`, no ternaries, no
+  three-argument `Join-Path`.
+
+`.gitattributes` pins the repo to LF. Without it a Windows clone gets CRLF,
+which breaks `install.sh` outright and makes every installed file read as
+drifted against a macOS install.
 
 ## Commands
 
@@ -57,6 +81,11 @@ Rolling out to other repos:
 ```bash
 ./tools/install.sh /path/to/repo           # install or update the payload
 ./tools/install.sh --check /path/to/repo   # report drift, change nothing
+```
+
+```powershell
+.\tools\install.ps1 C:\path\to\repo        # the same two operations on Windows
+.\tools\install.ps1 -Check C:\path\to\repo
 ```
 
 ## Architecture

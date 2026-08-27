@@ -625,15 +625,29 @@
           <h3>Run the installer</h3>
           <p>Clone the tooling repo once, then point it at any repo you own.</p>
           <div class="snippet">
-            <div class="snippet-label">terminal</div>
+            <div class="snippet-label">macOS / Linux</div>
             <pre>git clone https://github.com/vib795/create_sprint_branch.git
 cd create_sprint_branch
 ./tools/install.sh <i>/path/to/your/repo</i></pre>
           </div>
+          <div class="snippet">
+            <div class="snippet-label">Windows &mdash; PowerShell</div>
+            <pre>git clone https://github.com/vib795/create_sprint_branch.git
+cd create_sprint_branch
+.\tools\install.ps1 <i>C:\path\to\your\repo</i></pre>
+          </div>
           <p>
-            It writes the four workflows, the <code>sprint</code> package and the
-            tests. An existing <code>requirements.txt</code> is appended to, never
-            replaced, and an existing <code>sprint.yml</code> is left alone.
+            The two installers are interchangeable: both read
+            <code>tools/payload.manifest</code>, so a repo installed from Windows
+            is byte-for-byte identical to one installed from a Mac, and either can
+            check the other&rsquo;s work. The Windows one runs on the Windows
+            PowerShell 5.1 that ships with a locked-down VDI &mdash; no Git Bash,
+            no WSL, no Python needed to do the copying.
+          </p>
+          <p>
+            Either writes the four workflows, the <code>sprint</code> package and
+            the tests. An existing <code>requirements.txt</code> is appended to,
+            never replaced, and an existing <code>sprint.yml</code> is left alone.
           </p>
         </li>
 
@@ -1072,7 +1086,7 @@ want sprints to start on.</pre>
         makes that one command per repo instead of a hand-edit per repo.
       </p>
       <div class="snippet">
-        <div class="snippet-label">terminal</div>
+        <div class="snippet-label">macOS / Linux</div>
         <pre><i># Which repos have fallen behind?</i>
 ./tools/install.sh --check <i>/path/to/repo</i>
 
@@ -1083,6 +1097,11 @@ want sprints to start on.</pre>
 
 <i># Bring one up to date. Your sprint.yml is never touched.</i>
 ./tools/install.sh <i>/path/to/repo</i></pre>
+      </div>
+      <div class="snippet">
+        <div class="snippet-label">Windows &mdash; PowerShell</div>
+        <pre>.\tools\install.ps1 -Check <i>C:\path\to\repo</i>
+.\tools\install.ps1 <i>C:\path\to\repo</i></pre>
       </div>
       <p>
         <code>--check</code> changes nothing, so it is safe to run across every
@@ -1101,6 +1120,18 @@ want sprints to start on.</pre>
             <tr><th>Symptom</th><th>Cause and fix</th></tr>
           </thead>
           <tbody>
+            <tr>
+              <td><code>install.sh</code> prints nothing on Windows</td>
+              <td>PowerShell can&rsquo;t run a <code>.sh</code> file &mdash; it hands it to the Windows file association, so a window flashes or nothing happens. Use <code>.\tools\install.ps1</code> instead.</td>
+            </tr>
+            <tr>
+              <td>&ldquo;running scripts is disabled on this system&rdquo;</td>
+              <td>Execution policy. Start it as <code>powershell -ExecutionPolicy Bypass -File .\tools\install.ps1 C:\path\to\repo</code>. If you downloaded a ZIP instead of cloning, run <code>Unblock-File .\tools\install.ps1</code> first.</td>
+            </tr>
+            <tr>
+              <td><code>bad interpreter: /usr/bin/env bash^M</code></td>
+              <td>A Windows clone rewrote the script to CRLF. A fresh clone is fine &mdash; <code>.gitattributes</code> pins the repo to LF. For an older clone: <code>git rm --cached -r . &amp;&amp; git reset --hard</code>.</td>
+            </tr>
             <tr>
               <td>&ldquo;base branch <code>develop</code> does not exist&rdquo;, daily</td>
               <td>The repo doesn&rsquo;t have the branch named in <code>branches.base</code>. Point it at the branch you really cut from, or create it.</td>
@@ -1149,7 +1180,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.2.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.3.0. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

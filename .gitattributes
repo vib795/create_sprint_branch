@@ -1,0 +1,8 @@
+# Keep the payload byte-identical whichever OS checks it out.
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites every text
+# file to CRLF on checkout. That breaks two things at once: tools/install.sh
+# stops running ("bad interpreter: /usr/bin/env bash^M"), and every payload
+# file installed from a Windows clone reports DIFFERS forever against one
+# installed from macOS or Linux, because the installers compare bytes.
+* text=auto eol=lf

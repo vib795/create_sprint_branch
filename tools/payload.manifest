@@ -1,0 +1,22 @@
+# Every file copied into a repo that adopts the sprint automation.
+#
+#   <path in this repo>:<path in the target repo>
+#
+# Both tools/install.sh and tools/install.ps1 read this file, so a new payload
+# file needs exactly one line here and reaches every installer at once. A file
+# that is not listed silently never reaches any repo.
+#
+# .github/sprint.yml is deliberately absent: it carries per-team cadence, so the
+# installers handle it separately and never overwrite an existing one.
+
+template/workflows/sprint-cut.yml:.github/workflows/sprint-cut.yml
+template/workflows/sprint-promote.yml:.github/workflows/sprint-promote.yml
+template/workflows/sprint-backmerge.yml:.github/workflows/sprint-backmerge.yml
+template/workflows/sprint-validate.yml:.github/workflows/sprint-validate.yml
+scripts/sprint/__init__.py:scripts/sprint/__init__.py
+scripts/sprint/__main__.py:scripts/sprint/__main__.py
+scripts/sprint/cadence.py:scripts/sprint/cadence.py
+scripts/sprint/config.py:scripts/sprint/config.py
+scripts/sprint/naming.py:scripts/sprint/naming.py
+tests/conftest.py:tests/conftest.py
+tests/test_cadence.py:tests/test_cadence.py

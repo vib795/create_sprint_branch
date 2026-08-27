@@ -15,20 +15,32 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(cat "$SOURCE_DIR/VERSION")"
 CHECK_ONLY=false
 
-# source-relative-path:destination-relative-path
-PAYLOAD=(
-  "template/workflows/sprint-cut.yml:.github/workflows/sprint-cut.yml"
-  "template/workflows/sprint-promote.yml:.github/workflows/sprint-promote.yml"
-  "template/workflows/sprint-backmerge.yml:.github/workflows/sprint-backmerge.yml"
-  "template/workflows/sprint-validate.yml:.github/workflows/sprint-validate.yml"
-  "scripts/sprint/__init__.py:scripts/sprint/__init__.py"
-  "scripts/sprint/__main__.py:scripts/sprint/__main__.py"
-  "scripts/sprint/cadence.py:scripts/sprint/cadence.py"
-  "scripts/sprint/config.py:scripts/sprint/config.py"
-  "scripts/sprint/naming.py:scripts/sprint/naming.py"
-  "tests/conftest.py:tests/conftest.py"
-  "tests/test_cadence.py:tests/test_cadence.py"
-)
+# The payload list lives in tools/payload.manifest so that install.sh and
+# install.ps1 cannot disagree about what gets copied. Lines are
+# source-relative-path:destination-relative-path; # comments and blanks are
+# skipped, and the trim below also drops the CR of a CRLF checkout.
+MANIFEST="$SOURCE_DIR/tools/payload.manifest"
+if [ ! -f "$MANIFEST" ]; then
+  echo "error: payload manifest not found at $MANIFEST" >&2
+  exit 1
+fi
+
+PAYLOAD=()
+while IFS= read -r line || [ -n "$line" ]; do
+  line="${line%%#*}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
+  [ -z "$line" ] && continue
+  case "$line" in
+    *:*) PAYLOAD+=("$line") ;;
+    *) echo "error: malformed manifest line (expected source:destination): $line" >&2; exit 1 ;;
+  esac
+done < "$MANIFEST"
+
+if [ "${#PAYLOAD[@]}" -eq 0 ]; then
+  echo "error: payload manifest lists no files: $MANIFEST" >&2
+  exit 1
+fi
 
 CONFIG_SOURCE="template/sprint.yml"
 CONFIG_DEST=".github/sprint.yml"
@@ -121,6 +133,11 @@ for req in requirements.txt requirements-dev.txt; do
     echo "  wrote    $req"
   elif ! grep -qi '^[[:space:]]*pyyaml' "$TARGET/$req"; then
     if [ "$req" = "requirements.txt" ]; then
+      # A file whose last line has no newline would otherwise come out as
+      # "requests==2.31.0PyYAML>=6.0", which pip refuses to parse.
+      if [ -s "$TARGET/$req" ] && [ "$(tail -c1 "$TARGET/$req" | wc -l)" -eq 0 ]; then
+        printf '\n' >> "$TARGET/$req"
+      fi
       printf 'PyYAML>=6.0\n' >> "$TARGET/$req"
       echo "  appended PyYAML>=6.0 to $req"
     fi
