@@ -479,8 +479,8 @@
     <h1>Sprint Pipeline Handbook</h1>
     <p class="lede">
       Cut sprint branches on your team&rsquo;s own cadence, then walk each sprint
-      through DIT, SIT and UAT to a release branch &mdash; as pull requests a
-      person actually approves.
+      through DIT, SIT and UAT as pull requests a person actually approves.
+      Cutting a release stays a separate, ad-hoc step.
     </p>
   </header>
 
@@ -577,7 +577,7 @@
             <span class="st-name">env/uat</span>
           </div>
           <div class="link gated">
-            <span class="tag">you cut</span>
+            <span class="tag">ad-hoc<br>only when you ship</span>
             <span class="arrow"></span>
           </div>
           <div class="stage is-release">
@@ -591,6 +591,17 @@
         </div>
       </div>
 
+      <div class="callout">
+        <p class="c-title">Releases are ad-hoc</p>
+        <p>
+          Nothing cuts a release on a schedule. The daily run only ever opens the
+          sprint&nbsp;&rarr;&nbsp;DIT pull request; most sprints simply end at
+          UAT. When you do ship, run the promote workflow with
+          <code>hop: release</code> or cut the branch by hand &mdash; both give
+          the same branch from the same commit.
+        </p>
+      </div>
+
       <h3>Where feature work goes</h3>
       <p>
         Point feature pull requests at the <strong>sprint branch</strong>, not at
@@ -599,8 +610,9 @@
       </p>
       <p>
         A release is a <strong>branch cut from UAT</strong>, not a merge &mdash;
-        so that last step opens no pull request. It just creates
-        <code>release/&lt;sprint&gt;</code> at whatever UAT currently points to.
+        so that step opens no pull request. It just creates
+        <code>release/&lt;sprint&gt;</code> at whatever UAT currently points to,
+        which is why doing it by hand is equally valid.
       </p>
     </section>
 

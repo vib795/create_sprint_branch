@@ -1,7 +1,8 @@
 # Sprint Branch Automation
 
 Cuts sprint branches on your team's cadence and walks each sprint through
-DIT, SIT, UAT and release as a chain of reviewable pull requests.
+DIT, SIT and UAT as a chain of reviewable pull requests. Cutting a release is a
+separate, ad-hoc step for whenever you actually ship.
 
 Designed to be copied into every repo you own. Each repo keeps its own
 `.github/sprint.yml`, so teams on different cadences share the same tooling.
@@ -29,8 +30,8 @@ tools/install.sh            -> the rollout tool
                                               ▼
                                           env/dit ──verify──▶ env/sit ──verify──▶ env/uat
                                               │                                       │
-                                              │                                       │ cut
-                                              ▼                                       ▼
+                                              │                                       │ ad-hoc, only when
+                                              ▼                                       ▼ you actually ship
                                     back-merge PR to base            release/Q3_S5_082726_090926
 ```
 
@@ -40,6 +41,11 @@ branch. Everything merged during the sprint ships together.
 Only the first hop is automatic. `env/dit → env/sit → env/uat` each wait for a
 person to confirm the environment is actually verified, then merge the pull
 request the workflow opened.
+
+**Releases are ad-hoc.** Nothing cuts one on a schedule — the daily run only ever
+opens the sprint → DIT pull request. Most sprints end at UAT. When you do ship,
+run the promote workflow with `hop: release`, or cut the branch by hand; both
+give the same result.
 
 ## Installing in a repository
 
@@ -255,7 +261,7 @@ the action toolchain still works, provided Python and PyYAML are pre-installed.
 | Workflow | Trigger | What it does |
 |---|---|---|
 | **Sprint - cut branch** | daily, or manual | On a sprint start day, cuts the sprint branch from `branches.base`. Otherwise exits. |
-| **Sprint - promote** | daily, or manual | On a sprint end day, opens the sprint → DIT pull request. Manually, runs any hop: `dit`, `sit`, `uat`, `release`. |
+| **Sprint - promote** | daily, or manual | On a sprint end day, opens the sprint → DIT pull request — the *only* thing the schedule ever does. Manually, runs any hop: `dit`, `sit`, `uat`, `release`. |
 | **Sprint - back-merge to base** | daily, or manual | Opens a pull request whenever UAT or a release branch is ahead of the base branch. |
 | **Sprint - validate config** | pull requests | Validates `sprint.yml` and runs the cadence tests. |
 
