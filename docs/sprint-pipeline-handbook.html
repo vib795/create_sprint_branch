@@ -663,16 +663,10 @@ cd create_sprint_branch
         <li>
           <h3>Check it reads the way you expect</h3>
           <div class="snippet">
-            <div class="snippet-label">Windows &mdash; PowerShell</div>
-            <pre>.\sprint.ps1 validate</pre>
-          </div>
-          <div class="snippet">
-            <div class="snippet-label">macOS / Linux</div>
-            <pre>PYTHONPATH=scripts python -m sprint validate</pre>
-          </div>
-          <div class="snippet">
-            <div class="snippet-label">either &mdash; same output</div>
-            <pre><i>{</i>
+            <div class="snippet-label">any OS &mdash; use this one</div>
+            <pre>python sprint.py validate
+
+<i>{</i>
 <i>  "start_weekday": </i><b>"thursday"</b><i>,</i>
 <i>  "length_days": </i><b>14</b><i>,</i>
 <i>  "current_sprint": </i><b>"Q3_S5_2026_PROTS_0827-0910"</b><i>,</i>
@@ -680,13 +674,25 @@ cd create_sprint_branch
 <i>}</i></pre>
           </div>
           <p>
-            <code>sprint.ps1</code> sits in the repo root and is installed along
-            with everything else. It exists because the bash idiom
-            <code>PYTHONPATH=scripts python -m sprint</code> is <em>not</em> valid
-            PowerShell &mdash; PowerShell reads <code>PYTHONPATH=scripts</code> as
-            a command name and fails. The wrapper sets the path itself, so on
-            Windows you never type it.
+            <code>sprint.py</code> is installed in the repo root and is the
+            portable way in: it sets <code>PYTHONPATH</code> itself, anchors to
+            the repo root so it works from any subdirectory, and forwards every
+            argument to the CLI.
           </p>
+          <p>
+            <strong>On Windows, reach for it rather than translating the bash
+            line.</strong> <code>PYTHONPATH=scripts python -m sprint</code> is
+            bash-only syntax that PowerShell reads as a command name, and
+            <code>python -m .\scripts\sprint\</code> fails too because
+            <code>-m</code> takes a module name rather than a path. Being plain
+            Python, <code>sprint.py</code> is also immune to the execution policy
+            that refuses unsigned <code>.ps1</code> files on a managed image.
+          </p>
+          <div class="snippet">
+            <div class="snippet-label">equivalents, if you prefer them</div>
+            <pre>PYTHONPATH=scripts python -m sprint validate  <i># macOS / Linux</i>
+.\sprint.ps1 validate                        <i># Windows, needs a policy allowance</i></pre>
+          </div>
           <p>If that isn&rsquo;t the sprint you&rsquo;re in, fix the anchor before going further.</p>
         </li>
 
@@ -1139,8 +1145,12 @@ want sprints to start on.</pre>
               <td>PowerShell can&rsquo;t run a <code>.sh</code> file &mdash; it hands it to the Windows file association, so a window flashes or nothing happens. Use <code>.\tools\install.ps1</code> instead.</td>
             </tr>
             <tr>
+              <td>&ldquo;cannot be loaded &hellip; is not digitally signed&rdquo;</td>
+              <td>A managed image sets the execution policy to <code>AllSigned</code>, refusing every unsigned <code>.ps1</code>. Allow them for the current terminal only with <code>Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass</code>, which changes nothing for the machine. This affects the installer only &mdash; <code>python sprint.py</code> is not a PowerShell script and is never governed by it.</td>
+            </tr>
+            <tr>
               <td>&ldquo;running scripts is disabled on this system&rdquo;</td>
-              <td>Execution policy. Start it as <code>powershell -ExecutionPolicy Bypass -File .\tools\install.ps1 C:\path\to\repo</code>. If you downloaded a ZIP instead of cloning, run <code>Unblock-File .\tools\install.ps1</code> first.</td>
+              <td>The same policy, worded for <code>Restricted</code>. Same fix. Downloaded a ZIP rather than cloning? Also run <code>Unblock-File .\tools\install.ps1</code>. If Group Policy pins the setting, neither override works &mdash; install from Git Bash or WSL with <code>install.sh</code>.</td>
             </tr>
             <tr>
               <td><code>bad interpreter: /usr/bin/env bash^M</code></td>
@@ -1176,18 +1186,10 @@ want sprints to start on.</pre>
 
       <h3>Inspecting without touching anything</h3>
       <div class="snippet">
-        <div class="snippet-label">Windows &mdash; PowerShell</div>
-        <pre>.\sprint.ps1 status                    <i># where today falls</i>
-.\sprint.ps1 status --date 2026-09-10  <i># any date, past or future</i>
-.\sprint.ps1 promotion --hop dit       <i># what the next PR would say</i></pre>
-      </div>
-      <div class="snippet">
-        <div class="snippet-label">macOS / Linux</div>
-        <pre>export PYTHONPATH=scripts
-
-python -m sprint status                    <i># where today falls</i>
-python -m sprint status --date 2026-09-10  <i># any date, past or future</i>
-python -m sprint promotion --hop dit       <i># what the next PR would say</i>
+        <div class="snippet-label">any OS</div>
+        <pre>python sprint.py status                    <i># where today falls</i>
+python sprint.py status --date 2026-09-10  <i># any date, past or future</i>
+python sprint.py promotion --hop dit       <i># what the next PR would say</i>
 pytest tests -q                            <i># the cadence tests</i></pre>
       </div>
       <p>
@@ -1200,7 +1202,7 @@ pytest tests -q                            <i># the cadence tests</i></pre>
 
   <footer>
     Sprint Pipeline Handbook &middot; generated from
-    <code>create_sprint_branch</code> at version 1.4.0. Source lives at
+    <code>create_sprint_branch</code> at version 1.5.0. Source lives at
     <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
     republish so this page and the repo never disagree.
   </footer>

@@ -13,7 +13,8 @@ sprint branch is ever cut on this repo.
 
 ```
 template/sprint.yml         -> installed as .github/sprint.yml
-template/sprint.ps1         -> installed as sprint.ps1, the Windows CLI wrapper
+template/sprint.py          -> installed as sprint.py, the portable CLI wrapper
+template/sprint.ps1         -> installed as sprint.ps1, a PowerShell convenience
 template/workflows/*.yml    -> installed into .github/workflows/
 scripts/sprint/             -> copied as-is
 tests/                      -> copied as-is
@@ -75,27 +76,33 @@ cd create_sprint_branch
 Then in that repo:
 
 1. Edit `.github/sprint.yml` — set the cadence anchor and your branch names.
-2. Confirm it reads the way you expect:
-   ```powershell
-   .\sprint.ps1 validate                            # Windows
+2. Confirm it reads the way you expect. **`sprint.py` is the portable way and
+   the one to reach for on Windows** — identical on every OS, no `PYTHONPATH`,
+   and nothing PowerShell's execution policy can refuse:
+
    ```
+   python sprint.py validate
+   python sprint.py status --date 2026-09-10
+   python sprint.py promotion --hop dit
+   ```
+
+   It sets `PYTHONPATH` itself and anchors to the repo root, so it works from
+   any subdirectory and forwards every argument to the CLI.
+
+   The equivalents, if you prefer them:
+
    ```bash
    PYTHONPATH=scripts python -m sprint validate     # macOS / Linux
    ```
-
-   On Windows use the installed `sprint.ps1` wrapper rather than translating the
-   bash line. `PYTHONPATH=scripts python …` is bash-only syntax — PowerShell
-   reads `PYTHONPATH=scripts` as a command name and fails with *"is not
-   recognized as a name of a cmdlet"*. `python -m .\scripts\sprint\` fails too:
-   `-m` takes a module name, not a path. The wrapper sets `PYTHONPATH` itself,
-   runs from the repo root so `.github/sprint.yml` resolves, prefers your
-   activated venv, and forwards every argument through:
-
    ```powershell
-   .\sprint.ps1 status
-   .\sprint.ps1 status --date 2026-09-10
-   .\sprint.ps1 promotion --hop dit
+   .\sprint.ps1 validate                            # Windows, see the caveat below
    ```
+
+   Do **not** try to translate the bash line into PowerShell. `PYTHONPATH=scripts
+   python …` is bash-only syntax — PowerShell reads `PYTHONPATH=scripts` as a
+   command name and fails with *"is not recognized as a name of a cmdlet"*. And
+   `python -m .\scripts\sprint\` fails too, because `-m` takes a module name,
+   not a path.
 3. Add a `SPRINT_TOKEN` repository secret (see [Tokens](#tokens)).
 4. Commit, then run **Sprint - cut branch** manually with *force* to check it end to end.
 
@@ -109,24 +116,41 @@ reports which repos have drifted without changing anything:
 .\tools\install.ps1 -Check C:\path\to\your\repo       # PowerShell (--check also works)
 ```
 
-### If the installer does nothing on Windows
+### Windows gotchas
 
-`./tools/install.sh` cannot run in PowerShell — PowerShell hands `.sh` files to
-the Windows file association, which usually means a window flashes open and
-shuts, or nothing visible happens at all. Use `install.ps1` instead; it needs
-no Git Bash, no WSL and no Python to do the copying.
+**`./tools/install.sh` does nothing in PowerShell.** PowerShell hands `.sh`
+files to the Windows file association, so a window flashes open and shuts, or
+nothing visible happens at all. Use `install.ps1`; it needs no Git Bash and no
+WSL.
 
-Two other things bite on a corporate VDI:
+**"cannot be loaded … is not digitally signed."** A managed Windows image often
+ships with the execution policy set to `AllSigned`, which refuses every
+unsigned `.ps1` — including both of the ones here. Allow them for the current
+terminal only:
 
-- **Execution policy.** If PowerShell refuses to run the script, start it as
-  `powershell -ExecutionPolicy Bypass -File .\tools\install.ps1 C:\path\to\repo`.
-  If you downloaded a ZIP rather than cloning, Windows also marks the files as
-  web content — clear that with `Unblock-File .\tools\install.ps1` first.
-- **Line endings.** Git for Windows rewrites files to CRLF by default, which is
-  what makes `install.sh` fail with `bad interpreter: /usr/bin/env bash^M` even
-  in Git Bash. This repo ships a `.gitattributes` that pins everything to LF, so
-  a fresh clone is already correct; an older clone is fixed with
-  `git rm --cached -r . && git reset --hard`.
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+That lasts until you close the window and changes nothing for the machine. For
+a single command instead:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\tools\install.ps1 C:\path\to\repo
+```
+
+If you downloaded a ZIP rather than cloning, Windows also marks the files as web
+content; clear it with `Unblock-File .\tools\install.ps1`. If Group Policy pins
+the policy, neither override applies — install from Git Bash or WSL with
+`install.sh`, which the policy does not govern.
+
+Note this affects the installer only. **Day-to-day use never needs an execution
+policy allowance, because `python sprint.py …` is not a PowerShell script.**
+
+**Line endings.** Git for Windows rewrites files to CRLF by default, which makes
+`install.sh` fail with `bad interpreter: /usr/bin/env bash^M` even in Git Bash.
+This repo ships a `.gitattributes` pinning everything to LF, so a fresh clone is
+correct; fix an older clone with `git rm --cached -r . && git reset --hard`.
 
 ## Setting your sprint cadence
 

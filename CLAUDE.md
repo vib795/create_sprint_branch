@@ -29,18 +29,29 @@ never reaches any repo. CI fails if a file under `scripts/sprint/`,
 | Path here | Installed as |
 |---|---|
 | `template/sprint.yml` | `.github/sprint.yml` |
+| `template/sprint.py` | `sprint.py` (repo root) |
 | `template/sprint.ps1` | `sprint.ps1` (repo root) |
 | `template/workflows/*.yml` | `.github/workflows/*.yml` |
 | `scripts/sprint/`, `tests/` | same paths |
 | `.github/workflows/ci.yml` | never copied |
 | `tools/`, `VERSION` | never copied |
 
-`template/sprint.ps1` is a CLI wrapper, not config, so unlike `sprint.yml` it is
-overwritten on every reinstall. It exists because
-`PYTHONPATH=scripts python -m sprint` is bash-only syntax that PowerShell parses
-as a command name; any Windows instruction must point at
-`.\sprint.ps1 <subcommand>` rather than translate the bash line. Adding a CLI
-subcommand needs no change there — the wrapper forwards its arguments verbatim.
+Both wrappers are tooling rather than config, so unlike `sprint.yml` they are
+overwritten on every reinstall. Neither needs touching when a CLI subcommand is
+added — both forward their arguments verbatim.
+
+**`sprint.py` is the one to document.** `PYTHONPATH=scripts python -m sprint` is
+bash-only syntax that PowerShell parses as a command name, so a Windows
+instruction must never be a translation of the bash line. `sprint.ps1` came
+first and turned out to be the wrong shape: a managed Windows image commonly
+sets the execution policy to `AllSigned`, which refuses every unsigned `.ps1`
+outright. `sprint.py` is plain Python, so no policy governs it and one command
+works on every OS. Keep `sprint.ps1` for repos whose policy allows it, but lead
+with `python sprint.py <subcommand>` everywhere.
+
+That constraint applies to `tools/install.ps1` too, which is why the Windows
+install instructions carry `Set-ExecutionPolicy -Scope Process -ExecutionPolicy
+Bypass`. Day-to-day use must never require that allowance.
 
 ### Two installers, one manifest
 
