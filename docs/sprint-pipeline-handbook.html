@@ -1,0 +1,926 @@
+<title>Sprint Pipeline Handbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #F4F6F6;
+    --surface: #FFFFFF;
+    --surface-sunk: #EDF1F0;
+    --ink: #12211F;
+    --ink-soft: #334542;
+    --muted: #5A6B69;
+    --faint: #8496938F;
+    --line: #DCE4E2;
+    --line-strong: #C3CFCC;
+    --accent: #16706A;
+    --accent-soft: #16706A14;
+    --accent-line: #16706A45;
+    --gate: #A8571F;
+    --gate-soft: #A8571F14;
+    --gate-line: #A8571F45;
+    --shadow: 0 1px 2px #12211F0A, 0 8px 24px #12211F0A;
+
+    --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+    --measure: 68ch;
+    --gutter: clamp(1.15rem, 4vw, 2.5rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1615;
+      --surface: #142120;
+      --surface-sunk: #101B1A;
+      --ink: #E6EDEB;
+      --ink-soft: #C2D0CD;
+      --muted: #93A5A2;
+      --faint: #6F817E8F;
+      --line: #23332F;
+      --line-strong: #33473F;
+      --accent: #4FB3AA;
+      --accent-soft: #4FB3AA1A;
+      --accent-line: #4FB3AA4D;
+      --gate: #DD9455;
+      --gate-soft: #DD94551A;
+      --gate-line: #DD94554D;
+      --shadow: 0 1px 2px #0006, 0 8px 24px #00000040;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0D1615;
+    --surface: #142120;
+    --surface-sunk: #101B1A;
+    --ink: #E6EDEB;
+    --ink-soft: #C2D0CD;
+    --muted: #93A5A2;
+    --faint: #6F817E8F;
+    --line: #23332F;
+    --line-strong: #33473F;
+    --accent: #4FB3AA;
+    --accent-soft: #4FB3AA1A;
+    --accent-line: #4FB3AA4D;
+    --gate: #DD9455;
+    --gate-soft: #DD94551A;
+    --gate-line: #DD94554D;
+    --shadow: 0 1px 2px #0006, 0 8px 24px #00000040;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 1rem;
+    line-height: 1.65;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    max-width: 82rem;
+    margin: 0 auto;
+    padding: 0 var(--gutter) 6rem;
+  }
+
+  @media (min-width: 62rem) {
+    .page {
+      grid-template-columns: 13rem minmax(0, 1fr);
+      column-gap: 3.5rem;
+      align-items: start;
+    }
+    .masthead { grid-column: 1 / -1; }
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding: clamp(3rem, 8vw, 5.5rem) 0 clamp(2rem, 5vw, 3.25rem);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1.1rem;
+  }
+
+  .masthead h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(2.1rem, 6vw, 3.6rem);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+    max-width: 22ch;
+  }
+
+  .lede {
+    font-size: clamp(1.02rem, 1.9vw, 1.2rem);
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  /* ---------- rail ---------- */
+
+  .rail { display: none; }
+
+  @media (min-width: 62rem) {
+    .rail {
+      display: block;
+      position: sticky;
+      top: 2.5rem;
+      padding-top: 3.25rem;
+    }
+    .rail ol {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      border-left: 1px solid var(--line);
+    }
+    .rail a {
+      display: block;
+      padding: 0.36rem 0 0.36rem 1rem;
+      margin-left: -1px;
+      border-left: 2px solid transparent;
+      font-size: 0.845rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .rail a:hover {
+      color: var(--ink);
+      border-left-color: var(--line-strong);
+    }
+  }
+
+  /* ---------- content ---------- */
+
+  .content { padding-top: 3.25rem; min-width: 0; }
+
+  section { margin-bottom: clamp(3rem, 7vw, 4.5rem); scroll-margin-top: 2rem; }
+
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(1.4rem, 3vw, 1.85rem);
+    letter-spacing: -0.017em;
+    line-height: 1.2;
+    text-wrap: balance;
+    margin: 0 0 0.4rem;
+  }
+
+  h3 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 1.02rem;
+    letter-spacing: -0.008em;
+    margin: 2rem 0 0.5rem;
+  }
+
+  .section-note {
+    color: var(--muted);
+    font-size: 0.93rem;
+    margin: 0 0 1.6rem;
+    max-width: var(--measure);
+  }
+
+  p { max-width: var(--measure); margin: 0 0 1rem; text-wrap: pretty; }
+  p:last-child { margin-bottom: 0; }
+
+  a { color: var(--accent); text-underline-offset: 0.18em; }
+
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.86em;
+    background: var(--accent-soft);
+    color: var(--ink);
+    padding: 0.1em 0.36em;
+    border-radius: 3px;
+    word-break: break-word;
+  }
+
+  strong { font-weight: 600; }
+
+  ul.plain { list-style: none; margin: 0 0 1rem; padding: 0; max-width: var(--measure); }
+  ul.plain li {
+    position: relative;
+    padding-left: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+  ul.plain li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.72em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-line);
+  }
+
+  /* ---------- code blocks ---------- */
+
+  .snippet {
+    background: var(--surface-sunk);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0 0 1.25rem;
+  }
+  .snippet-label {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0.5rem 0.9rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .snippet pre {
+    margin: 0;
+    padding: 0.9rem;
+    overflow-x: auto;
+    font-family: var(--f-mono);
+    font-size: 0.815rem;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    tab-size: 2;
+  }
+  .snippet pre b { color: var(--accent); font-weight: 500; }
+  .snippet pre i { color: var(--faint); font-style: normal; }
+
+  /* ---------- pipeline ---------- */
+
+  .pipeline {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 8px;
+    padding: clamp(1rem, 3vw, 1.75rem);
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .flow {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-width: 43rem;
+  }
+  .stage {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0.85rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+  }
+  .stage .st-kind {
+    font-family: var(--f-mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .stage .st-name {
+    font-family: var(--f-mono);
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--ink);
+    word-break: break-all;
+  }
+  .stage.is-source { border-color: var(--line-strong); }
+  .stage.is-env { border-color: var(--gate-line); background: var(--gate-soft); }
+  .stage.is-release { border-color: var(--accent-line); background: var(--accent-soft); }
+
+  .link {
+    flex: 0 0 6.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0 0.35rem;
+  }
+  .link .arrow {
+    width: 100%;
+    height: 1px;
+    background: var(--line-strong);
+    position: relative;
+  }
+  .link .arrow::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: -3px;
+    border-left: 6px solid var(--line-strong);
+    border-top: 3.5px solid transparent;
+    border-bottom: 3.5px solid transparent;
+  }
+  .link .tag {
+    font-family: var(--f-mono);
+    font-size: 0.63rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+    line-height: 1.35;
+  }
+  .link.auto .tag { color: var(--accent); }
+  .link.auto .arrow, .link.auto .arrow::after { background: var(--accent-line); border-left-color: var(--accent-line); }
+  .link.gated .tag { color: var(--gate); }
+  .link.gated .arrow, .link.gated .arrow::after { background: var(--gate-line); border-left-color: var(--gate-line); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.5rem;
+    margin-top: 1.15rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.83rem;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .swatch { width: 0.85rem; height: 0.2rem; border-radius: 1px; flex: none; }
+  .swatch.auto { background: var(--accent); }
+  .swatch.gated { background: var(--gate); }
+
+  /* ---------- steps ---------- */
+
+  .steps { list-style: none; counter-reset: step; margin: 0; padding: 0; }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 3rem;
+    padding-bottom: 1.75rem;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: -0.1rem;
+    width: 1.85rem;
+    height: 1.85rem;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--accent-line);
+    background: var(--surface);
+    color: var(--accent);
+    font-family: var(--f-mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  .steps > li:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 0.92rem;
+    top: 2.05rem;
+    bottom: 0.2rem;
+    width: 1px;
+    background: var(--line);
+  }
+  .steps h3 { margin-top: 0; }
+
+  /* ---------- tables ---------- */
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; font-size: 0.875rem; }
+  th, td { text-align: left; padding: 0.62rem 0.9rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--f-mono);
+    font-size: 0.67rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--surface-sunk);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td code { background: none; padding: 0; color: var(--accent); }
+  .tnum { font-variant-numeric: tabular-nums; font-family: var(--f-mono); font-size: 0.82rem; }
+
+  /* ---------- callout ---------- */
+
+  .callout {
+    border: 1px solid var(--gate-line);
+    background: var(--gate-soft);
+    border-radius: 6px;
+    padding: 1rem 1.15rem;
+    margin: 1.5rem 0;
+    max-width: var(--measure);
+  }
+  .callout .c-title {
+    font-family: var(--f-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--gate);
+    margin: 0 0 0.45rem;
+  }
+  .callout p { margin-bottom: 0.7rem; font-size: 0.94rem; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  /* ---------- two-up ---------- */
+
+  .duo { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+  @media (min-width: 44rem) { .duo { grid-template-columns: 1fr 1fr; } }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 1.05rem 1.15rem;
+    background: var(--surface);
+  }
+  .card h3 { margin: 0 0 0.4rem; font-size: 0.95rem; }
+  .card p { font-size: 0.9rem; color: var(--ink-soft); margin: 0; }
+
+  footer {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line);
+    padding-top: 1.5rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="page">
+
+  <header class="masthead">
+    <p class="eyebrow">Internal tooling &middot; create_sprint_branch</p>
+    <h1>Sprint Pipeline Handbook</h1>
+    <p class="lede">
+      Cut sprint branches on your team&rsquo;s own cadence, then walk each sprint
+      through DIT, SIT and UAT to a release branch &mdash; as pull requests a
+      person actually approves.
+    </p>
+  </header>
+
+  <nav class="rail" aria-label="Sections">
+    <ol>
+      <li><a href="#model">The model</a></li>
+      <li><a href="#pipeline">The pipeline</a></li>
+      <li><a href="#install">Install in a repo</a></li>
+      <li><a href="#cadence">Set your cadence</a></li>
+      <li><a href="#daily">Day to day</a></li>
+      <li><a href="#promote">Promoting</a></li>
+      <li><a href="#backmerge">Back-merge</a></li>
+      <li><a href="#updates">Rolling out updates</a></li>
+      <li><a href="#trouble">When it breaks</a></li>
+    </ol>
+  </nav>
+
+  <main class="content">
+
+    <section id="model">
+      <h2>Two kinds of repo</h2>
+      <p class="section-note">Knowing which one you&rsquo;re looking at explains everything else.</p>
+      <div class="duo">
+        <div class="card">
+          <h3>create_sprint_branch</h3>
+          <p>
+            Holds the logic. The copyable payload sits under <code>template/</code>,
+            and nothing here is scheduled &mdash; this repo never cuts a sprint
+            branch for itself. You come here to change behaviour for everyone.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Your product repos</h3>
+          <p>
+            Each gets its own copy of the workflows plus a
+            <code>.github/sprint.yml</code>. Teams on different cadences share the
+            same tooling without agreeing on a schedule.
+          </p>
+        </div>
+      </div>
+      <p style="margin-top:1.25rem">
+        The payload is <strong>copied, not referenced</strong>. A fix made in
+        <code>create_sprint_branch</code> reaches a product repo only when someone
+        re-runs the installer against it &mdash; see
+        <a href="#updates">Rolling out updates</a>.
+      </p>
+    </section>
+
+    <section id="pipeline">
+      <h2>The pipeline</h2>
+      <p class="section-note">
+        One hop runs itself. The rest wait for you, because &ldquo;verified in
+        DIT&rdquo; is a judgement only a person can make.
+      </p>
+
+      <div class="pipeline">
+        <div class="flow">
+          <div class="stage is-source">
+            <span class="st-kind">Base</span>
+            <span class="st-name">develop</span>
+          </div>
+          <div class="link auto">
+            <span class="tag">sprint start<br>automatic</span>
+            <span class="arrow"></span>
+          </div>
+          <div class="stage is-source">
+            <span class="st-kind">Sprint</span>
+            <span class="st-name">Sprint_Q3_S5_&hellip;</span>
+          </div>
+          <div class="link auto">
+            <span class="tag">sprint end<br>PR opens itself</span>
+            <span class="arrow"></span>
+          </div>
+          <div class="stage is-env">
+            <span class="st-kind">Environment</span>
+            <span class="st-name">env/dit</span>
+          </div>
+          <div class="link gated">
+            <span class="tag">you verify<br>you merge</span>
+            <span class="arrow"></span>
+          </div>
+          <div class="stage is-env">
+            <span class="st-kind">Environment</span>
+            <span class="st-name">env/sit</span>
+          </div>
+          <div class="link gated">
+            <span class="tag">you verify<br>you merge</span>
+            <span class="arrow"></span>
+          </div>
+          <div class="stage is-env">
+            <span class="st-kind">Environment</span>
+            <span class="st-name">env/uat</span>
+          </div>
+          <div class="link gated">
+            <span class="tag">you cut</span>
+            <span class="arrow"></span>
+          </div>
+          <div class="stage is-release">
+            <span class="st-kind">Release</span>
+            <span class="st-name">release/Q3_S5_&hellip;</span>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="swatch auto"></i> Happens on its own</span>
+          <span><i class="swatch gated"></i> Waits for a person</span>
+        </div>
+      </div>
+
+      <h3>Where feature work goes</h3>
+      <p>
+        Point feature pull requests at the <strong>sprint branch</strong>, not at
+        <code>develop</code>. Everything merged during the sprint ships together
+        when that branch is promoted.
+      </p>
+      <p>
+        A release is a <strong>branch cut from UAT</strong>, not a merge &mdash;
+        so that last step opens no pull request. It just creates
+        <code>release/&lt;sprint&gt;</code> at whatever UAT currently points to.
+      </p>
+    </section>
+
+    <section id="install">
+      <h2>Install in a repo</h2>
+      <p class="section-note">Roughly ten minutes per repo, most of it deciding the cadence.</p>
+
+      <ol class="steps">
+        <li>
+          <h3>Run the installer</h3>
+          <p>Clone the tooling repo once, then point it at any repo you own.</p>
+          <div class="snippet">
+            <div class="snippet-label">terminal</div>
+            <pre>git clone https://github.com/vib795/create_sprint_branch.git
+cd create_sprint_branch
+./tools/install.sh <i>/path/to/your/repo</i></pre>
+          </div>
+          <p>
+            It writes the four workflows, the <code>sprint</code> package and the
+            tests. An existing <code>requirements.txt</code> is appended to, never
+            replaced, and an existing <code>sprint.yml</code> is left alone.
+          </p>
+        </li>
+
+        <li>
+          <h3>Set the cadence and branch names</h3>
+          <p>
+            Edit <code>.github/sprint.yml</code>. At minimum, set
+            <code>cadence.anchor</code> to a date one of your sprints started and
+            <code>branches.base</code> to whatever you cut sprints from.
+          </p>
+        </li>
+
+        <li>
+          <h3>Check it reads the way you expect</h3>
+          <div class="snippet">
+            <div class="snippet-label">terminal</div>
+            <pre>PYTHONPATH=scripts python -m sprint validate
+
+<i>{</i>
+<i>  "start_weekday": </i><b>"thursday"</b><i>,</i>
+<i>  "length_days": </i><b>14</b><i>,</i>
+<i>  "current_sprint": </i><b>"Sprint_Q3_S5_082726_090926"</b><i>,</i>
+<i>  "sprint_start": "2026-08-27", "sprint_end": "2026-09-09"</i>
+<i>}</i></pre>
+          </div>
+          <p>If that isn&rsquo;t the sprint you&rsquo;re in, fix the anchor before going further.</p>
+        </li>
+
+        <li>
+          <h3>Add a SPRINT_TOKEN secret</h3>
+          <p>
+            A fine-grained token with <strong>contents</strong> and
+            <strong>pull requests</strong> read/write, stored as
+            <code>SPRINT_TOKEN</code>. Without it the workflows fall back to
+            <code>GITHUB_TOKEN</code>, and pull requests opened that way never
+            trigger status checks &mdash; leaving nothing for a promotion to gate on.
+          </p>
+        </li>
+
+        <li>
+          <h3>Protect the branches</h3>
+          <p>
+            Protect <code>base</code>, the three <code>env/*</code> branches and
+            <code>release/*</code>, so a reviewed pull request is the only way
+            between environments. The automation assumes this and does not
+            configure it. Without protection the gates are convention, not
+            enforcement.
+          </p>
+        </li>
+
+        <li>
+          <h3>Dry-run it</h3>
+          <p>
+            Commit, then run <strong>Sprint&nbsp;&ndash;&nbsp;cut branch</strong>
+            manually with <em>force</em> ticked. That cuts the branch on a
+            non-sprint-start day so you can watch it work, then delete the branch
+            if you like.
+          </p>
+        </li>
+      </ol>
+    </section>
+
+    <section id="cadence">
+      <h2>Set your cadence</h2>
+      <p class="section-note">
+        Two values describe the whole schedule. There is no separate
+        &ldquo;which day&rdquo; setting &mdash; the anchor <em>is</em> the day.
+      </p>
+
+      <div class="snippet">
+        <div class="snippet-label">.github/sprint.yml</div>
+        <pre>cadence:
+  anchor: <b>2026-01-05</b>          <i># a Monday, so sprints start Mondays</i>
+  length_days: <b>14</b>             <i># so this one ends Sunday 18 Jan</i>
+  start_weekday: monday      <i># optional guard, must match the anchor</i>
+  timezone: America/Chicago  <i># the day your team recognises, not UTC</i>
+  numbering: quarter         <i># or: continuous</i></pre>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>You want</th><th>anchor</th><th>length_days</th><th>First sprint</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Thursday fortnights</td><td class="tnum">2024-06-06</td><td class="tnum">14</td><td class="tnum">Thu 6 Jun &ndash; Wed 19 Jun</td></tr>
+            <tr><td>Monday fortnights</td><td class="tnum">2026-01-05</td><td class="tnum">14</td><td class="tnum">Mon 5 Jan &ndash; Sun 18 Jan</td></tr>
+            <tr><td>Monday weeks</td><td class="tnum">2026-01-05</td><td class="tnum">7</td><td class="tnum">Mon 5 Jan &ndash; Sun 11 Jan</td></tr>
+            <tr><td>Wednesday three-week</td><td class="tnum">2026-01-07</td><td class="tnum">21</td><td class="tnum">Wed 7 Jan &ndash; Tue 27 Jan</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>The guard</h3>
+      <p>
+        <code>start_weekday</code> is optional and exists only to catch a
+        half-finished edit. Move the anchor without updating it and the config is
+        rejected with the reason, rather than quietly cutting branches on the
+        wrong day:
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">rejected</div>
+        <pre>sprint: cadence.start_weekday says <b>'friday'</b> but cadence.anchor
+(2026-01-05) is a <b>monday</b>. Move the anchor to the friday you
+want sprints to start on.</pre>
+      </div>
+
+      <h3>Branch names</h3>
+      <p>
+        <code>numbering: quarter</code> resets the sprint number each quarter and
+        gives <code>Sprint_Q3_S5_082726_090926</code>.
+        <code>numbering: continuous</code> counts from the anchor and never
+        resets: <code>Sprint_S59_082726_090926</code>. Release branches mirror
+        whichever you pick.
+      </p>
+    </section>
+
+    <section id="daily">
+      <h2>Day to day</h2>
+      <p class="section-note">
+        Four workflows. Three run daily and self-gate, so on most days they run
+        and deliberately do nothing.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Workflow</th><th>Runs</th><th>What it does</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Sprint &ndash; cut branch</code></td>
+              <td>daily, or manual</td>
+              <td>On a sprint start day, cuts the sprint branch from your base branch.</td>
+            </tr>
+            <tr>
+              <td><code>Sprint &ndash; promote</code></td>
+              <td>daily, or manual</td>
+              <td>On the sprint&rsquo;s last day, opens the sprint&nbsp;&rarr;&nbsp;DIT pull request. Run it by hand for any later hop.</td>
+            </tr>
+            <tr>
+              <td><code>Sprint &ndash; back-merge</code></td>
+              <td>daily, or manual</td>
+              <td>Opens a pull request whenever UAT or a release branch has drifted ahead of your base branch.</td>
+            </tr>
+            <tr>
+              <td><code>Sprint &ndash; validate config</code></td>
+              <td>on pull requests</td>
+              <td>Checks <code>sprint.yml</code> and runs the cadence tests before a bad edit can land.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1.25rem">
+        Every promotion step is safe to re-run. A branch that already exists, a
+        pull request already open, or a head branch with nothing new to give are
+        each reported and skipped &mdash; never duplicated, never a red build.
+      </p>
+    </section>
+
+    <section id="promote">
+      <h2>Promoting through environments</h2>
+      <p class="section-note">Run the promote workflow and pick the hop.</p>
+      <p>
+        In the repo&rsquo;s <strong>Actions</strong> tab, choose
+        <strong>Sprint&nbsp;&ndash;&nbsp;promote</strong>, then
+        <strong>Run workflow</strong>, and select the hop:
+      </p>
+      <ul class="plain">
+        <li><code>dit</code> &mdash; sprint branch into <code>env/dit</code>. Usually already opened for you at sprint end.</li>
+        <li><code>sit</code> &mdash; <code>env/dit</code> into <code>env/sit</code>, once DIT checks out.</li>
+        <li><code>uat</code> &mdash; <code>env/sit</code> into <code>env/uat</code>, once SIT checks out.</li>
+        <li><code>release</code> &mdash; cuts <code>release/&lt;sprint&gt;</code> from <code>env/uat</code>. No pull request; the branch simply appears.</li>
+      </ul>
+      <p>
+        Each of the first three opens a pull request. Review it, let the checks
+        run, merge it. Merging is what moves the code &mdash; the workflow only
+        ever proposes.
+      </p>
+      <p>
+        The first time you promote in a repo, an <code>env/*</code> branch that
+        doesn&rsquo;t exist yet is seeded from your base branch so the promotion
+        has somewhere to land.
+      </p>
+      <p>
+        Promoting a sprint other than the current one? Pass any date inside it as
+        <em>sprint_date</em>.
+      </p>
+    </section>
+
+    <section id="backmerge">
+      <h2>Back-merge, and why it matters</h2>
+      <p class="section-note">This is the one habit that keeps the model honest.</p>
+      <p>
+        Branch-per-environment drifts. A hotfix applied to <code>env/uat</code> or
+        to a release branch exists <em>only</em> there. The next sprint gets cut
+        from a base branch that never received it, and the fix quietly disappears
+        from production.
+      </p>
+      <div class="callout">
+        <p class="c-title">Merge these promptly</p>
+        <p>
+          The back-merge workflow opens a pull request the moment UAT or a release
+          branch runs ahead of your base branch. Letting those sit is how this
+          model fails &mdash; silently, a sprint or two later, in production.
+        </p>
+      </div>
+      <p>
+        It runs on a schedule rather than on a push, so it keeps working no matter
+        what you rename your branches to. Turn it off with
+        <code>promotion.backmerge_to_base: false</code> only if you have another
+        mechanism for the same problem.
+      </p>
+    </section>
+
+    <section id="updates">
+      <h2>Rolling out updates</h2>
+      <p class="section-note">
+        The payload is copied, so improvements need pushing out. The installer
+        makes that one command per repo instead of a hand-edit per repo.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">terminal</div>
+        <pre><i># Which repos have fallen behind?</i>
+./tools/install.sh --check <i>/path/to/repo</i>
+
+<i>template version:  1.0.0</i>
+<i>installed version: 1.0.0</i>
+<i>  </i><b>DIFFERS</b><i>  .github/workflows/sprint-cut.yml</i>
+<i>  config   .github/sprint.yml present (never overwritten)</i>
+
+<i># Bring one up to date. Your sprint.yml is never touched.</i>
+./tools/install.sh <i>/path/to/repo</i></pre>
+      </div>
+      <p>
+        <code>--check</code> changes nothing, so it is safe to run across every
+        repo you own. Cadence lives in <code>sprint.yml</code>, which the
+        installer always preserves &mdash; an update can never reset a team&rsquo;s
+        schedule.
+      </p>
+    </section>
+
+    <section id="trouble">
+      <h2>When it breaks</h2>
+      <p class="section-note">The failures you are most likely to hit first.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Symptom</th><th>Cause and fix</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>&ldquo;base branch <code>develop</code> does not exist&rdquo;, daily</td>
+              <td>The repo doesn&rsquo;t have the branch named in <code>branches.base</code>. Point it at the branch you really cut from, or create it.</td>
+            </tr>
+            <tr>
+              <td>Promotion PR sits with no checks</td>
+              <td>It was opened with <code>GITHUB_TOKEN</code>. Add the <code>SPRINT_TOKEN</code> secret; PRs opened by the default token never trigger workflows.</td>
+            </tr>
+            <tr>
+              <td>No branch cut this morning</td>
+              <td>Most likely correct &mdash; it only cuts on sprint start days. Confirm with <code>python -m sprint status</code>, which prints the current window.</td>
+            </tr>
+            <tr>
+              <td>&ldquo;head branch does not exist&rdquo; on promote</td>
+              <td>Promoting a sprint whose branch was never cut. Run the cut workflow, or pass a <em>sprint_date</em> inside the sprint you meant.</td>
+            </tr>
+            <tr>
+              <td>Merge conflict on a promotion</td>
+              <td>Expected, and it surfaces in the pull request like any other. Resolve it there; the workflow proposes, it never force-merges.</td>
+            </tr>
+            <tr>
+              <td>Wrong sprint number or dates</td>
+              <td>Almost always the anchor. Run <code>python -m sprint validate</code> and check the window it prints against the sprint you are actually in.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Inspecting without touching anything</h3>
+      <div class="snippet">
+        <div class="snippet-label">terminal</div>
+        <pre>export PYTHONPATH=scripts
+
+python -m sprint status                    <i># where today falls</i>
+python -m sprint status --date 2026-09-10  <i># any date, past or future</i>
+python -m sprint promotion --hop dit       <i># what the next PR would say</i>
+pytest tests -q                            <i># the cadence tests</i></pre>
+      </div>
+      <p>
+        None of these touch git or GitHub. They only compute, so they are safe to
+        run anywhere, any time.
+      </p>
+    </section>
+
+  </main>
+
+  <footer>
+    Sprint Pipeline Handbook &middot; generated from
+    <code>create_sprint_branch</code> at version 1.0.0. Source lives at
+    <code>docs/sprint-pipeline-handbook.html</code> &mdash; edit it there and
+    republish so this page and the repo never disagree.
+  </footer>
+
+</div>

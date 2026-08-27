@@ -180,6 +180,14 @@ This automation assumes, but does not configure, branch protection. Protect
 between environments is a reviewed pull request — otherwise the gates are
 convention rather than enforcement.
 
+## Team handbook
+
+A task-oriented guide for people adopting this — installing, setting a cadence,
+promoting through environments, and the failures worth recognising — lives at
+[`docs/sprint-pipeline-handbook.html`](docs/sprint-pipeline-handbook.html).
+It is published as a shareable page; edit the file and republish so the page and
+this repo never disagree.
+
 ## Contributing
 
 Changes to cadence or naming need a test in `tests/test_cadence.py`. The suite
