@@ -489,11 +489,13 @@
       <li><a href="#model">The model</a></li>
       <li><a href="#pipeline">The pipeline</a></li>
       <li><a href="#install">Install in a repo</a></li>
+      <li><a href="#commit">What to commit</a></li>
       <li><a href="#cadence">Set your cadence</a></li>
       <li><a href="#names">Branch names</a></li>
       <li><a href="#runners">Self-hosted runners</a></li>
       <li><a href="#verify">Prove it works</a></li>
       <li><a href="#daily">Day to day</a></li>
+      <li><a href="#cutting">Cutting by hand</a></li>
       <li><a href="#promote">Promoting</a></li>
       <li><a href="#backmerge">Back-merge</a></li>
       <li><a href="#updates">Rolling out updates</a></li>
@@ -729,6 +731,94 @@ cd create_sprint_branch
           </p>
         </li>
       </ol>
+    </section>
+
+    <section id="commit">
+      <h2>What to commit</h2>
+      <p class="section-note">
+        Set your cadence first &mdash; the next section &mdash; then commit
+        the lot together. The installer writes seventeen files and no
+        <code>.gitignore</code>. Commit all seventeen: the automation runs from
+        the repo, so anything left out is simply missing on the runner.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Path</th><th>Commit?</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>.github/workflows/sprint-*.yml</code></td>
+              <td>Yes &mdash; 4 files</td>
+              <td>GitHub only sees workflows that are committed on the default branch.</td>
+            </tr>
+            <tr>
+              <td><code>.github/sprint.yml</code></td>
+              <td>Yes</td>
+              <td>Your cadence. This is the one file you edit; every branch name derives from it.</td>
+            </tr>
+            <tr>
+              <td><code>scripts/sprint/*.py</code></td>
+              <td>Yes &mdash; 5 files</td>
+              <td>The date arithmetic and naming the workflows import.</td>
+            </tr>
+            <tr>
+              <td><code>sprint.py</code>, <code>sprint.ps1</code></td>
+              <td>Yes</td>
+              <td>The CLI wrappers. Tooling, not config &mdash; a reinstall overwrites both.</td>
+            </tr>
+            <tr>
+              <td><code>tests/</code></td>
+              <td>Yes &mdash; 2 files</td>
+              <td>The validate workflow runs these on every pull request that touches the cadence.</td>
+            </tr>
+            <tr>
+              <td><code>requirements.txt</code>, <code>requirements-dev.txt</code></td>
+              <td>Yes</td>
+              <td>Merged, not replaced &mdash; your existing entries are left alone.</td>
+            </tr>
+            <tr>
+              <td><code>.github/.sprint-automation-version</code></td>
+              <td>Yes</td>
+              <td>The version stamp. Committing it is what lets anyone &mdash; not just whoever installed &mdash; run <code>--check</code> and see whether this repo has drifted.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>What not to commit</h3>
+      <p>
+        Nothing the installer writes. Only what appears once you <em>run</em>
+        it: <code>__pycache__/</code> beside the Python it executes, and your
+        virtual environment. One line covers the first, and
+        <code>.pytest_cache/</code> ignores itself &mdash; pytest writes its own
+        <code>.gitignore</code> inside it.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">add to .gitignore if it isn&rsquo;t there already</div>
+        <pre>__pycache__/
+venv/</pre>
+      </div>
+      <p>
+        And the one that is not a file at all: <strong>never commit
+        <code>SPRINT_TOKEN</code></strong>. It is a repository secret, set under
+        <em>Settings &rarr; Secrets and variables &rarr; Actions</em>. Nothing
+        in the payload reads a token from disk.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">the first commit after installing</div>
+        <pre>git checkout -b chore/sprint-automation
+git add .github scripts tests sprint.py sprint.ps1 requirements*.txt .gitignore
+git commit -m "Add sprint branch automation"
+git push -u origin chore/sprint-automation</pre>
+      </div>
+      <p>
+        Open it as a pull request rather than pushing to your default branch.
+        The <code>Sprint &ndash; validate config</code> workflow runs on that
+        pull request and checks your cadence before it can affect anything
+        &mdash; which makes your very first commit also the first automated
+        test.
+      </p>
     </section>
 
     <section id="cadence">
@@ -1115,28 +1205,74 @@ pytest tests -q</pre>
         and run the same four.
       </p>
 
-      <h3>What runs automatically once you stop testing</h3>
+      <h3>6. Testing it automatically</h3>
+      <p>
+        Once you stop testing by hand, three things keep testing for you. The
+        first is the one that matters: it is what stops a bad cadence edit from
+        reaching your default branch.
+      </p>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Gate</th><th>When it fires</th></tr>
+            <tr><th>Gate</th><th>Fires</th><th>Runs</th></tr>
           </thead>
           <tbody>
             <tr>
               <td><code>Sprint &ndash; validate config</code></td>
-              <td>On every pull request touching <code>.github/sprint.yml</code>, the sprint workflows, <code>scripts/sprint/</code> or <code>tests/</code>. This is what stops a bad cadence edit from reaching your default branch.</td>
+              <td>Every pull request touching <code>.github/sprint.yml</code>, <code>.github/workflows/sprint-*.yml</code>, <code>scripts/sprint/</code> or <code>tests/</code></td>
+              <td>A runner preflight, <code>sprint validate</code>, then the full test suite. The resolved cadence is written into the run summary, so a reviewer can read the dates the edit produces without checking anything out.</td>
             </tr>
             <tr>
               <td>The three daily workflows</td>
-              <td>Every morning. They self-gate, so on most days they run and deliberately do nothing &mdash; a green run with no branch is the normal result, not a failure.</td>
+              <td>Every morning on a schedule</td>
+              <td>They self-gate. On most days they run and deliberately do nothing &mdash; a green run with no branch is the expected result, not a failure.</td>
             </tr>
             <tr>
-              <td><code>install.ps1 -Check</code> / <code>install.sh --check</code></td>
-              <td>Whenever you want it. Reports whether this repo has drifted from the template, and at which version, without changing a file.</td>
+              <td><code>install.ps1 -Check</code></td>
+              <td>Whenever you ask</td>
+              <td>Compares this repo against the template and names the version and any drifted file. Changes nothing.</td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <h3>Prove the gate is really armed</h3>
+      <p>
+        A gate nobody has seen fire is an assumption. Make it fire once, on
+        purpose, with an edit you know is wrong:
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">a deliberate contradiction &mdash; the anchor is a Thursday</div>
+        <pre>git checkout -b test/sprint-gate
+<i># in .github/sprint.yml, change:</i>
+  start_weekday: monday
+git commit -am "Deliberately wrong weekday" &amp;&amp; git push -u origin test/sprint-gate</pre>
+      </div>
+      <p>
+        Open the pull request. <code>Sprint &ndash; validate config</code> should
+        fail, naming the field and the contradiction rather than a stack trace.
+        Delete the branch afterwards. You now know the gate is wired to your
+        runner, your token and your branch protection &mdash; not merely present
+        in a YAML file.
+      </p>
+
+      <h3>If you already have a CI pipeline</h3>
+      <p>
+        The suite needs no runner, no network and no git, so it drops into an
+        existing pipeline as two lines. <code>tests/conftest.py</code> puts
+        <code>scripts/</code> on the path itself, so no <code>PYTHONPATH</code>
+        is needed when running under pytest.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">anywhere your existing checks run</div>
+        <pre>pip install -r requirements-dev.txt
+pytest tests -q</pre>
+      </div>
+      <p>
+        Add <code>python sprint.py validate</code> alongside it if you want the
+        pipeline to fail on a bad config even for a change that did not touch
+        <code>sprint.yml</code>.
+      </p>
     </section>
 
     <section id="daily">
@@ -1178,6 +1314,72 @@ pytest tests -q</pre>
         Every promotion step is safe to re-run. A branch that already exists, a
         pull request already open, or a head branch with nothing new to give are
         each reported and skipped &mdash; never duplicated, never a red build.
+      </p>
+    </section>
+
+    <section id="cutting">
+      <h2>Cutting a branch by hand</h2>
+      <p class="section-note">
+        For the first sprint, a sprint that starts before you finished
+        installing, or any day the schedule and reality disagree.
+      </p>
+
+      <h3>The normal way &mdash; dispatch the workflow</h3>
+      <p>
+        <strong>Actions &rarr; Sprint &ndash; cut branch &rarr; Run
+        workflow.</strong> Two optional inputs:
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Input</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><em>date</em> &mdash; <code>YYYY-MM-DD</code></td>
+              <td>Resolve the sprint as though today were that date. The branch is named for the sprint containing it, not for today.</td>
+            </tr>
+            <tr>
+              <td><em>force</em></td>
+              <td>Cut even though the date is not a sprint start. Without it, the run reports the current window and stops &mdash; green, but no branch.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:1.25rem">
+        Leave both empty and it behaves exactly like the daily schedule: it cuts
+        only if today is a sprint start. To cut the sprint you are already
+        mid-way through, set <em>date</em> to any day inside it and tick
+        <em>force</em>.
+      </p>
+      <p>
+        Re-running is safe. If the branch exists the run reports
+        <code>already exists &ndash; nothing to do</code> and exits green. It
+        never force-pushes and never moves an existing branch.
+      </p>
+
+      <h3>The fallback &mdash; plain git</h3>
+      <p>
+        If the runner is down, or the repo is not on GitHub Actions yet, cut it
+        yourself. <strong>Take the name from the CLI rather than typing it.</strong>
+        Every later hop looks the branch up by the name the config generates, so
+        a hand-typed variant &mdash; one digit off, a dash where an underscore
+        belongs &mdash; produces a branch the promotion workflow will not find.
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">ask for the name, then cut it</div>
+        <pre>python sprint.py status          <i># copy "sprint_branch" from the output</i>
+
+git fetch origin develop
+git branch Q3_S5_2026_PROTS_0827-0910 origin/develop
+git push origin Q3_S5_2026_PROTS_0827-0910</pre>
+      </div>
+      <p>
+        That is precisely what the workflow does &mdash; it adds only the
+        existence checks and the run summary. Substitute your own
+        <code>branches.base</code> for <code>develop</code>.
+      </p>
+      <p>
+        For a future or past sprint, ask for that one instead:
+        <code>python sprint.py status --date 2026-09-10</code>.
       </p>
     </section>
 
