@@ -692,12 +692,21 @@ cd create_sprint_branch
       <div class="snippet">
         <div class="snippet-label">.github/sprint.yml</div>
         <pre>cadence:
-  anchor: <b>2026-01-05</b>          <i># a Monday, so sprints start Mondays</i>
-  length_days: <b>14</b>             <i># so this one ends Sunday 18 Jan</i>
-  start_weekday: monday      <i># optional guard, must match the anchor</i>
+  anchor: <b>2024-06-06</b>          <i># a Thursday, so sprints start Thursdays</i>
+  length_days: <b>14</b>             <i># so each one ends 13 days later, on a Wednesday</i>
+  start_weekday: thursday    <i># optional guard, must match the anchor</i>
   timezone: America/Chicago  <i># the day your team recognises, not UTC</i>
   numbering: quarter         <i># or: continuous</i></pre>
       </div>
+
+      <p>
+        That is the anchor behind every branch name on this page. From
+        <code>2024-06-06</code> to 27 Aug 2026 is 812 days, which divides exactly
+        by 14 &mdash; so that Thursday starts a sprint, and it ends 13 days later
+        on 9 Sep, giving <code>Sprint_Q3_S5_<strong>082726_090926</strong></code>.
+        Move the anchor to a Monday and every boundary moves with it, dates in the
+        name included.
+      </p>
 
       <div class="table-wrap">
         <table>

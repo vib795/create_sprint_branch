@@ -74,12 +74,17 @@ sets the end date.
 
 ```yaml
 cadence:
-  anchor: 2026-01-05      # a Monday -> sprints start on Mondays
-  length_days: 14         # ends Sunday, 13 days later
-  start_weekday: monday   # optional cross-check against the anchor
+  anchor: 2024-06-06        # a Thursday -> sprints start on Thursdays
+  length_days: 14           # ends Wednesday, 13 days later
+  start_weekday: thursday   # optional cross-check against the anchor
   timezone: America/Chicago
   numbering: quarter
 ```
+
+That anchor is what produces the branch names shown below: 812 days from
+`2024-06-06` to 2026-08-27 divides exactly by 14, so that Thursday starts a
+sprint ending 2026-09-09. Move the anchor to a Monday and every boundary moves
+with it — the dates in the name change too.
 
 Some cadences and what they produce:
 
