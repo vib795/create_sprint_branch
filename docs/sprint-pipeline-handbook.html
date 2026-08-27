@@ -756,6 +756,67 @@ want sprints to start on.</pre>
         quarter forever would open at <code>start_number</code>.
       </p>
 
+      <p>
+        <strong>Worked example.</strong> Your team runs Monday fortnights and has
+        just finished Sprint&nbsp;23. The next one starts Monday 7&nbsp;September
+        2026 and should be Sprint&nbsp;24. Point the anchor at that date and name
+        it:
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">.github/sprint.yml</div>
+        <pre>cadence:
+  anchor: <b>2026-09-07</b>       <i># the next sprint's start date, a Monday</i>
+  length_days: 14
+  numbering: continuous
+  start_number: <b>24</b>         <i># ...and it is Sprint 24</i></pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sprint starts</th><th>Branch cut</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="tnum">2026-09-07</td><td class="tnum">Sprint_S24_090726_092026</td></tr>
+            <tr><td class="tnum">2026-09-21</td><td class="tnum">Sprint_S25_092126_100426</td></tr>
+            <tr><td class="tnum">2026-10-05</td><td class="tnum">Sprint_S26_100526_101826</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:1.25rem">
+        The same move in <code>quarter</code> mode, where the next sprint should
+        be Q3&nbsp;S7 &mdash; note the reset when the quarter turns over:
+      </p>
+      <div class="snippet">
+        <div class="snippet-label">.github/sprint.yml</div>
+        <pre>cadence:
+  anchor: <b>2026-09-10</b>       <i># a Thursday</i>
+  length_days: 14
+  numbering: quarter
+  start_number: <b>7</b></pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Sprint starts</th><th>Branch cut</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="tnum">2026-09-10</td><td class="tnum">Sprint_Q3_S7_091026_092326</td><td></td></tr>
+            <tr><td class="tnum">2026-09-24</td><td class="tnum">Sprint_Q3_S8_092426_100726</td><td></td></tr>
+            <tr><td class="tnum">2026-10-08</td><td class="tnum">Sprint_Q4_S1_100826_102126</td><td>new quarter, back to S1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout">
+        <p class="c-title">Point the anchor at the sprint you are naming</p>
+        <p>
+          It does not have to be the first sprint you ever ran. Any date on the
+          cycle works &mdash; earlier sprints simply extrapolate backwards from
+          it. Pick the one whose number you are certain of.
+        </p>
+      </div>
+
       <h3>Quarters that don&rsquo;t open in January</h3>
       <p>
         <code>fiscal_year_start_month</code> is the month Q1 counts from. Leave

@@ -114,6 +114,46 @@ Under `numbering: quarter` it labels the anchor's own quarter and later quarters
 restart at 1 as usual — otherwise every quarter forever would open at
 `start_number`.
 
+#### Worked example: you are on Sprint 23
+
+Your team runs Monday fortnights and just finished Sprint 23. The next one
+starts Monday 7 September 2026 and should be called Sprint 24. Set the anchor to
+that date and name it:
+
+```yaml
+cadence:
+  anchor: 2026-09-07        # the next sprint's start date, a Monday
+  length_days: 14
+  numbering: continuous
+  start_number: 24          # ...and it is Sprint 24
+```
+
+```
+2026-09-07   Sprint_S24_090726_092026
+2026-09-21   Sprint_S25_092126_100426
+2026-10-05   Sprint_S26_100526_101826
+```
+
+The same idea in `quarter` mode, where the next sprint should be Q3 S7:
+
+```yaml
+cadence:
+  anchor: 2026-09-10        # a Thursday
+  length_days: 14
+  numbering: quarter
+  start_number: 7
+```
+
+```
+2026-09-10   Sprint_Q3_S7_091026_092326
+2026-09-24   Sprint_Q3_S8_092426_100726
+2026-10-08   Sprint_Q4_S1_100826_102126   <- new quarter, back to S1
+```
+
+Point the anchor at the sprint you are naming. It does not have to be the first
+sprint you ever ran — any date on the cycle works, and past dates extrapolate
+backwards from it.
+
 ### Quarters that do not open in January
 
 `fiscal_year_start_month` is the month Q1 counts from. The default of `1` gives

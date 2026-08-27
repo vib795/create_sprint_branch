@@ -30,6 +30,11 @@ cadence:
   # instead of restarting at 1.
   #   continuous -> counts up from here forever (23, 24, 25, ...)
   #   quarter    -> labels the anchor's quarter only; later quarters restart at 1
+  #
+  # Already on Sprint 23, with the next one starting on the anchor? Set:
+  #   anchor: <that start date>
+  #   numbering: continuous
+  #   start_number: 24        -> Sprint_S24_..., then S25, S26
   start_number: 1
 
   # The month your financial year opens, which is what Q1 is counted from.
